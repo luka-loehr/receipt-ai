@@ -42,9 +42,16 @@ LINE_SPACING = 5
 def load_font(size=16):
     """Try to load a monospace font, fallback to default"""
     font_paths = [
-        "/System/Library/Fonts/Courier.dfont",  # macOS
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",  # Linux
-        "C:\\Windows\\Fonts\\consola.ttf",  # Windows
+        # Linux font paths (try these first)
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+        "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeMono.ttf",
+        "/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf",
+        # macOS font paths
+        "/System/Library/Fonts/Courier.dfont",
+        # Windows font paths
+        "C:\\Windows\\Fonts\\consola.ttf",
     ]
     
     for path in font_paths:
@@ -258,7 +265,14 @@ def main():
         if sys.platform == "darwin":  # macOS
             subprocess.run(["open", OUTPUT_FILE])
         elif sys.platform == "linux":
-            subprocess.run(["xdg-open", OUTPUT_FILE])
+            # Try multiple Linux image viewers
+            viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
+            for viewer in viewers:
+                try:
+                    subprocess.run([viewer, OUTPUT_FILE], check=True)
+                    break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
         elif sys.platform == "win32":
             subprocess.run(["start", OUTPUT_FILE], shell=True)
     except:

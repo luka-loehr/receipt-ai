@@ -93,8 +93,42 @@ def load_font(size=16, bold=False, mono=False):
     # Scale font size for higher DPI
     size = size * DPI_SCALE
     
+    # Linux font paths with better options (try these first)
+    linux_font_options = [
+        # DejaVu fonts (high quality, commonly available)
+        {
+            "regular": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "bold": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "mono": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+        },
+        # Liberation fonts (good quality)
+        {
+            "regular": "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "bold": "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "mono": "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
+        },
+        # Ubuntu fonts
+        {
+            "regular": "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+            "bold": "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
+            "mono": "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf"
+        },
+        # Free fonts
+        {
+            "regular": "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            "bold": "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+            "mono": "/usr/share/fonts/truetype/freefont/FreeMono.ttf"
+        },
+        # Noto fonts
+        {
+            "regular": "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+            "bold": "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+            "mono": "/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf"
+        }
+    ]
+    
     # macOS font paths with better options
-    font_options = [
+    macos_font_options = [
         # SF Pro (Apple's system font) - best quality
         {
             "regular": "/System/Library/Fonts/SFNS.ttf",
@@ -120,6 +154,12 @@ def load_font(size=16, bold=False, mono=False):
             "mono": "/System/Library/Fonts/Supplemental/Courier New.ttf"
         }
     ]
+    
+    # Choose font options based on platform
+    if platform.system() == "Linux":
+        font_options = linux_font_options + macos_font_options
+    else:
+        font_options = macos_font_options
     
     # Determine which font type to load
     if mono:
@@ -149,12 +189,24 @@ def load_font(size=16, bold=False, mono=False):
     # Fallback to PIL's better default
     try:
         from PIL import ImageFont
-        return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(size))
+        if platform.system() == "Linux":
+            # Try a common Linux font as fallback
+            fallback_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+            ]
+            for path in fallback_paths:
+                if os.path.exists(path):
+                    return ImageFont.truetype(path, int(size))
+        else:
+            return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(size))
     except:
-        # Ultimate fallback
-        default = ImageFont.load_default()
-        # Try to scale the default font
-        return default
+        pass
+    
+    # Ultimate fallback
+    default = ImageFont.load_default()
+    # Try to scale the default font
+    return default
 
 def draw_centered_text(draw, y, text, font, color=FG_COLOR):
     """Draw centered text"""
@@ -391,12 +443,23 @@ def main():
     print(f"📄 Paper width: 58mm (384px)")
     print("\n☕ Perfect for your morning coffee ritual!")
     
-    # Auto-open on macOS
+    # Auto-open image
     try:
         import subprocess
         import sys
-        if sys.platform == "darwin":
+        if sys.platform == "darwin":  # macOS
             subprocess.run(["open", OUTPUT_FILE])
+        elif sys.platform == "linux":
+            # Try multiple Linux image viewers
+            viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
+            for viewer in viewers:
+                try:
+                    subprocess.run([viewer, OUTPUT_FILE], check=True)
+                    break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+        elif sys.platform == "win32":  # Windows
+            subprocess.run(["start", OUTPUT_FILE], shell=True)
     except:
         pass
 
