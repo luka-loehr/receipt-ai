@@ -67,14 +67,14 @@ def setup_gmail():
     print("2. Create a new project or select existing")
     print("3. Enable Gmail API")
     print("4. Create OAuth 2.0 credentials")
-    print("5. Download credentials as gmail_credentials.json")
+    print("5. Download credentials as google_credentials.json")
     print("6. Place the file in this directory")
     
     # Check if credentials file exists
-    if os.path.exists('gmail_credentials.json'):
-        print("✅ Gmail credentials found")
+    if os.path.exists('google_credentials.json'):
+        print("✅ Google credentials found")
     else:
-        print("❌ gmail_credentials.json not found")
+        print("❌ google_credentials.json not found")
         print("   You can still use the app with mock data")
 
 def setup_calendar():
@@ -85,14 +85,14 @@ def setup_calendar():
     print("2. Create a new project or select existing")
     print("3. Enable Google Calendar API")
     print("4. Create OAuth 2.0 credentials")
-    print("5. Download credentials as calendar_credentials.json")
+    print("5. Download credentials as google_credentials.json")
     print("6. Place the file in this directory")
     
     # Check if credentials file exists
-    if os.path.exists('calendar_credentials.json'):
-        print("✅ Calendar credentials found")
+    if os.path.exists('google_credentials.json'):
+        print("✅ Google credentials found")
     else:
-        print("❌ calendar_credentials.json not found")
+        print("❌ google_credentials.json not found")
         print("   You can still use the app with mock data")
 
 def update_env_var(key, value):
@@ -142,16 +142,16 @@ def test_apis():
         print("❌ Gemini API key not configured")
     
     # Test Gmail credentials
-    if os.path.exists('gmail_credentials.json'):
-        print("✅ Gmail credentials found")
+    if os.path.exists('google_credentials.json'):
+        print("✅ Google credentials found")
     else:
-        print("❌ Gmail credentials not found")
+        print("❌ Google credentials not found")
     
     # Test Calendar credentials
-    if os.path.exists('calendar_credentials.json'):
-        print("✅ Calendar credentials found")
+    if os.path.exists('google_credentials.json'):
+        print("✅ Google credentials found")
     else:
-        print("❌ Calendar credentials not found")
+        print("❌ Google credentials not found")
 
 def main():
     """Main setup function"""

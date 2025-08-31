@@ -125,14 +125,15 @@ class EmailService:
     """Handles Gmail data fetching and processing"""
     
     def __init__(self):
-        self.credentials_file = os.getenv('GMAIL_CREDENTIALS_FILE', 'gmail_credentials.json')
+        # Use the unified Google credentials file
+        self.credentials_file = os.getenv('GOOGLE_CREDENTIALS_FILE', 'google_credentials.json')
         self.max_emails = int(os.getenv('MAX_EMAILS_TO_PROCESS', '10'))
         self.priority_keywords = os.getenv('EMAIL_PRIORITY_KEYWORDS', 'urgent,important,asap,deadline,meeting').split(',')
         self.spam_filters = os.getenv('EMAIL_SPAM_FILTERS', 'newsletter,marketing,promotion,unsubscribe').split(',')
         
         # Check if credentials exist
         if not os.path.exists(self.credentials_file):
-            print("⚠️  Warning: No Gmail credentials found. Using mock data.")
+            print("⚠️  Warning: No Google credentials found. Using mock data.")
     
     def get_recent_emails(self) -> List[EmailData]:
         """Get recent emails with AI-powered analysis"""
@@ -140,9 +141,85 @@ class EmailService:
             return self._get_mock_emails()
         
         try:
-            # This would integrate with Gmail API
-            # For now, returning mock data
-            return self._get_mock_emails()
+            # Real Gmail API integration
+            from google.auth.transport.requests import Request
+            from google.oauth2.credentials import Credentials
+            from google_auth_oauthlib.flow import InstalledAppFlow
+            from googleapiclient.discovery import build
+            
+            SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+            
+            # Get credentials
+            creds = None
+            if os.path.exists('gmail_token.json'):
+                creds = Credentials.from_authorized_user_file('gmail_token.json', SCOPES)
+            
+            if not creds or not creds.valid:
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+                else:
+                    flow = InstalledAppFlow.from_client_secrets_file(self.credentials_file, SCOPES)
+                    creds = flow.run_local_server(port=0)
+                
+                # Save the credentials for the next run
+                with open('gmail_token.json', 'w') as token:
+                    token.write(creds.to_json())
+            
+            # Build Gmail service
+            service = build('gmail', 'v1', credentials=creds)
+            
+            # Get recent messages
+            results = service.users().messages().list(
+                userId='me', 
+                maxResults=self.max_emails,
+                labelIds=['INBOX']
+            ).execute()
+            
+            messages = results.get('messages', [])
+            email_data = []
+            
+            for message in messages:
+                msg = service.users().messages().get(
+                    userId='me', 
+                    id=message['id'],
+                    format='metadata',
+                    metadataHeaders=['From', 'Subject', 'Date']
+                ).execute()
+                
+                headers = msg['payload']['headers']
+                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown')
+                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
+                date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+                
+                # Parse date and format time
+                try:
+                    from email.utils import parsedate_to_datetime
+                    from datetime import datetime
+                    dt = parsedate_to_datetime(date_str)
+                    time_str = dt.strftime("%I:%M %p")
+                except:
+                    time_str = "Unknown"
+                
+                # Determine priority and importance
+                subject_lower = subject.lower()
+                priority = "high" if any(keyword in subject_lower for keyword in self.priority_keywords) else "medium"
+                is_important = any(keyword in subject_lower for keyword in self.priority_keywords)
+                
+                # Create summary (using subject for now, could be enhanced with AI)
+                summary = subject[:100] + "..." if len(subject) > 100 else subject
+                
+                email_data.append(EmailData(
+                    sender=sender,
+                    subject=subject,
+                    summary=summary,
+                    priority=priority,
+                    time=time_str,
+                    thread_id=message['id'],
+                    is_important=is_important
+                ))
+            
+            return email_data
+            
         except Exception as e:
             print(f"⚠️  Gmail API error: {e}. Using mock data.")
             return self._get_mock_emails()
@@ -192,11 +269,12 @@ class CalendarService:
     """Handles Google Calendar data fetching"""
     
     def __init__(self):
-        self.credentials_file = os.getenv('CALENDAR_CREDENTIALS_FILE', 'calendar_credentials.json')
+        # Use the unified Google credentials file
+        self.credentials_file = os.getenv('GOOGLE_CREDENTIALS_FILE', 'google_credentials.json')
         self.timezone = os.getenv('USER_TIMEZONE', 'Europe/Berlin')
         
         if not os.path.exists(self.credentials_file):
-            print("⚠️  Warning: No Calendar credentials found. Using mock data.")
+            print("⚠️  Warning: No Google credentials found. Using mock data.")
     
     def get_today_events(self) -> List[CalendarEvent]:
         """Get today's calendar events"""
@@ -204,9 +282,85 @@ class CalendarService:
             return self._get_mock_events()
         
         try:
-            # This would integrate with Google Calendar API
-            # For now, returning mock data
-            return self._get_mock_events()
+            # Real Google Calendar API integration
+            from google.auth.transport.requests import Request
+            from google.oauth2.credentials import Credentials
+            from google_auth_oauthlib.flow import InstalledAppFlow
+            from googleapiclient.discovery import build
+            from datetime import datetime, timedelta
+            import pytz
+            
+            SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+            
+            # Get credentials
+            creds = None
+            if os.path.exists('calendar_token.json'):
+                creds = Credentials.from_authorized_user_file('calendar_token.json', SCOPES)
+            
+            if not creds or not creds.valid:
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+                else:
+                    flow = InstalledAppFlow.from_client_secrets_file(self.credentials_file, SCOPES)
+                    creds = flow.run_local_server(port=0)
+                
+                # Save the credentials for the next run
+                with open('calendar_token.json', 'w') as token:
+                    token.write(creds.to_json())
+            
+            # Build Calendar service
+            service = build('calendar', 'v3', credentials=creds)
+            
+            # Get today's events - use exact same logic as the test
+            now = datetime.utcnow().isoformat() + 'Z'
+            end = (datetime.utcnow() + timedelta(days=1)).isoformat() + 'Z'
+            
+            print(f"   📅 Searching for events from {now} to {end}")
+            
+            events_result = service.events().list(
+                calendarId='primary',
+                timeMin=now,
+                timeMax=end,
+                maxResults=10,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            
+            events = events_result.get('items', [])
+            print(f"   📅 Found {len(events)} raw events from API")
+            
+            calendar_data = []
+            
+            for event in events:
+                print(f"   📅 Processing event: {event.get('summary', 'No title')}")
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                end = event['end'].get('dateTime', event['end'].get('date'))
+                
+                if 'dateTime' in event['start']:
+                    # Time-specific event
+                    start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+                    start_time = start_dt.strftime("%H:%M")
+                    end_time = end_dt.strftime("%H:%M")
+                    is_all_day = False
+                else:
+                    # All-day event
+                    start_time = "Ganztägig"
+                    end_time = ""
+                    is_all_day = True
+                
+                calendar_data.append(CalendarEvent(
+                    title=event['summary'],
+                    start_time=start_time,
+                    end_time=end_time,
+                    location=event.get('location', ''),
+                    description=event.get('description', ''),
+                    is_all_day=is_all_day
+                ))
+            
+            print(f"   📅 Returning {len(calendar_data)} processed events")
+            return calendar_data
+            
         except Exception as e:
             print(f"⚠️  Calendar API error: {e}. Using mock data.")
             return self._get_mock_events()
@@ -321,20 +475,20 @@ class AIService:
             return emails
     
     def generate_daily_insights(self, weather: WeatherData, emails: List[EmailData], events: List[CalendarEvent]) -> str:
-        """Generate AI-powered daily insights"""
+        """Generate AI-powered daily insights in German"""
         if not self.model:
-            return "Have a productive day!"
+            return "Hab einen produktiven Tag!"
         
         try:
             prompt = f"""
-            Based on this daily information, provide a motivational quote or insight for the day:
+            Based on this daily information, provide a motivational quote or insight for the day IN GERMAN:
             
             Weather: {weather.temperature}, {weather.condition}
             Emails: {len(emails)} new, {sum(1 for e in emails if e.priority == 'high')} urgent
             Events: {len(events)} meetings today
             
-            Provide a brief, motivational insight or quote that's relevant to this day's schedule.
-            Keep it under 100 characters and make it inspiring.
+            Provide a brief, motivational insight or quote in German that's relevant to this day's schedule.
+            Keep it under 100 characters and make it inspiring. Write ONLY in German.
             """
             
             response = self.model.generate_content(prompt)
@@ -342,7 +496,7 @@ class AIService:
             
         except Exception as e:
             print(f"⚠️  AI insights error: {e}")
-            return "Have a productive day!"
+            return "Hab einen produktiven Tag!"
 
 class DataManager:
     """Main data manager that coordinates all services"""

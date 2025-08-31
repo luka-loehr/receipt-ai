@@ -1,0 +1,33 @@
+# Credentials and tokens
+google_credentials.json
+gmail_token.json
+calendar_token.json
+*.json
+
+# Generated images
+*.png
+*.jpg
+*.jpeg
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
