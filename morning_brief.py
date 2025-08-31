@@ -15,59 +15,11 @@ import platform
 USER_NAME = "Luka"
 OUTPUT_FILE = "morning_brief.png"
 
-# Mock email data (replace with real data from email API)
-MOCK_EMAILS = [
-    {
-        "from": "Team Slack",
-        "subject": "Weekly product sync notes",
-        "summary": "Q3 roadmap on track. New feature launch delayed by 1 week. Customer feedback positive.",
-        "priority": "high",
-        "time": "8:45 AM"
-    },
-    {
-        "from": "Sarah Chen",
-        "subject": "Re: Project timeline",
-        "summary": "Confirmed meeting for Tuesday 2pm. Need final designs by EOW.",
-        "priority": "high",
-        "time": "9:12 AM"
-    },
-    {
-        "from": "GitHub",
-        "subject": "3 new PRs ready for review",
-        "summary": "Frontend refactor PR merged. Two backend PRs awaiting your review.",
-        "priority": "medium",
-        "time": "7:30 AM"
-    },
-    {
-        "from": "Calendar",
-        "subject": "Today: 4 meetings scheduled",
-        "summary": "10am Standup • 11am Client call • 2pm Design review • 4pm 1-on-1",
-        "priority": "high",
-        "time": "6:00 AM"
-    },
-    {
-        "from": "AWS",
-        "subject": "Monthly usage report",
-        "summary": "Total spend $847. 12% decrease from last month. All services healthy.",
-        "priority": "low",
-        "time": "Yesterday"
-    },
-    {
-        "from": "Newsletter Daily",
-        "subject": "Tech news digest",
-        "summary": "Apple announces new API. OpenAI updates GPT. Startup raises $50M Series B.",
-        "priority": "low",
-        "time": "5:00 AM"
-    }
-]
+# Import real data services
+from data_services import DataManager, WeatherData, EmailData, CalendarEvent
 
-# Weather mock data
-WEATHER = {
-    "temp": "72°F",
-    "condition": "Partly Cloudy",
-    "high": "78°F",
-    "low": "65°F"
-}
+# Initialize data manager
+data_manager = DataManager()
 
 # Quote of the day
 QUOTES = [
@@ -277,6 +229,10 @@ def get_priority_symbol(priority):
 
 def create_morning_brief():
     """Generate the morning briefing receipt with high quality rendering"""
+    # Fetch real data
+    print("🔄 Fetching real-time data...")
+    weather, emails, events, insights = data_manager.get_all_data()
+    
     # Start with tall canvas at higher resolution
     canvas_height = 2500 * DPI_SCALE
     img = Image.new("RGB", (PAPER_WIDTH, canvas_height), BG_COLOR)
@@ -315,15 +271,15 @@ def create_morning_brief():
     y += draw_separator(draw, y, "solid", 2 * DPI_SCALE)
     y += 20 * DPI_SCALE
     
-    # Weather section (using text instead of emoji for better compatibility)
+    # Weather section (using real data)
     draw.text((MARGIN, y), "TODAY'S WEATHER", fill=FG_COLOR, font=font_heading)
     y += 35 * DPI_SCALE
     
-    weather_line1 = f"{WEATHER['temp']} - {WEATHER['condition']}"
+    weather_line1 = f"{weather.temperature} - {weather.condition}"
     draw.text((MARGIN + 20 * DPI_SCALE, y), weather_line1, fill=FG_COLOR, font=font_normal)
     y += 30 * DPI_SCALE
     
-    weather_line2 = f"High: {WEATHER['high']}  Low: {WEATHER['low']}"
+    weather_line2 = f"High: {weather.high}  Low: {weather.low}"
     draw.text((MARGIN + 20 * DPI_SCALE, y), weather_line2, fill=GRAY_COLOR, font=font_small)
     y += 35 * DPI_SCALE
     
@@ -336,37 +292,37 @@ def create_morning_brief():
     y += 35 * DPI_SCALE
     
     # Statistics
-    high_priority = sum(1 for e in MOCK_EMAILS if e["priority"] == "high")
-    total = len(MOCK_EMAILS)
+    high_priority = sum(1 for e in emails if e.priority == "high")
+    total = len(emails)
     stats_text = f"{total} new - {high_priority} urgent"
     draw.text((MARGIN + 20 * DPI_SCALE, y), stats_text, fill=GRAY_COLOR, font=font_small)
     y += 35 * DPI_SCALE
     
     # Individual emails
-    for i, email in enumerate(MOCK_EMAILS):
+    for i, email in enumerate(emails):
         if i > 0:
             y += 10 * DPI_SCALE  # Larger gap between emails
         
         # Priority indicator + sender
-        priority_symbol = get_priority_symbol(email["priority"])
-        sender_line = f"{priority_symbol} {email['from']}"
+        priority_symbol = get_priority_symbol(email.priority)
+        sender_line = f"{priority_symbol} {email.sender}"
         draw.text((MARGIN, y), sender_line, fill=FG_COLOR, font=font_normal)
         
         # Time (right-aligned)
-        time_bbox = draw.textbbox((0, 0), email["time"], font=font_tiny)
+        time_bbox = draw.textbbox((0, 0), email.time, font=font_tiny)
         time_width = time_bbox[2] - time_bbox[0]
-        draw.text((PAPER_WIDTH - MARGIN - time_width, y), email["time"], fill=GRAY_COLOR, font=font_tiny)
+        draw.text((PAPER_WIDTH - MARGIN - time_width, y), email.time, fill=GRAY_COLOR, font=font_tiny)
         y += 28 * DPI_SCALE
         
         # Subject (indented)
-        subject_text = email["subject"]
+        subject_text = email.subject
         if len(subject_text) > 35:
             subject_text = subject_text[:32] + "..."
         draw.text((MARGIN + 30 * DPI_SCALE, y), subject_text, fill=FG_COLOR, font=font_small)
         y += 26 * DPI_SCALE
         
         # Summary (wrapped, indented)
-        y += draw_wrapped_text(draw, MARGIN + 30 * DPI_SCALE, y, email["summary"], 
+        y += draw_wrapped_text(draw, MARGIN + 30 * DPI_SCALE, y, email.summary, 
                               font_tiny, PAPER_WIDTH - MARGIN * 2 - 30 * DPI_SCALE, GRAY_COLOR)
         y += 15 * DPI_SCALE
     
@@ -380,14 +336,12 @@ def create_morning_brief():
     draw.text((MARGIN, y), "QUICK REMINDERS", fill=FG_COLOR, font=font_heading)
     y += 35 * DPI_SCALE
     
-    reminders = [
-        "- Standup meeting at 10:00 AM",
-        "- Review pull requests before lunch",
-        "- Submit expense report (due today)",
-    ]
-    
-    for reminder in reminders:
-        draw.text((MARGIN + 20 * DPI_SCALE, y), reminder, fill=FG_COLOR, font=font_small)
+    # Use real calendar events
+    for event in events:
+        event_text = f"- {event.title} at {event.start_time}"
+        if len(event_text) > 40:
+            event_text = event_text[:37] + "..."
+        draw.text((MARGIN + 20 * DPI_SCALE, y), event_text, fill=FG_COLOR, font=font_small)
         y += 28 * DPI_SCALE
     
     y += 10
@@ -396,9 +350,8 @@ def create_morning_brief():
     y += draw_separator(draw, y, "dashed")
     y += 10
     
-    # Daily quote
-    quote = random.choice(QUOTES)
-    y += draw_wrapped_text(draw, MARGIN, y, quote, font_tiny, 
+    # AI-generated daily insight
+    y += draw_wrapped_text(draw, MARGIN, y, insights, font_tiny, 
                           PAPER_WIDTH - MARGIN * 2, GRAY_COLOR)
     
     y += 12
