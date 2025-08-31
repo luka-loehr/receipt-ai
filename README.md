@@ -1,45 +1,36 @@
 # 🧾 Receipt Printer
 
-**Personalized German Morning Briefs for Thermal Printers**
+Personalized German morning briefs for thermal printers with real-time Google data.
+
+[![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat&logo=python&logoColor=white)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat)](LICENSE)
+[![Setup](https://img.shields.io/badge/Setup-One%20Script-orange?style=flat)](setup.py)
 
 Generate beautiful, personalized morning briefings with real-time data from Google Calendar, Gmail, and weather services. Perfect for your morning coffee ritual! ☕
 
-## ✨ Features
+## Features
 
 - **🇩🇪 German Localization**: Complete German interface and AI insights
-- **📅 Real Calendar Data**: Live Google Calendar integration
+- **📅 Real Calendar Data**: Live Google Calendar integration  
 - **📧 Live Email Data**: Real-time Gmail processing with AI analysis
 - **🌤️ Weather Integration**: Current conditions and forecasts
 - **🤖 AI-Powered Insights**: Gemini AI generates personalized daily insights
 - **🖨️ Thermal Printer Ready**: Optimized for 58mm thermal printers
 - **🔐 Unified Google Auth**: Single credentials file for all Google services
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. Prerequisites
-- Python 3.8+
-- `google_credentials.json` from Google Cloud Console
-- Virtual environment (recommended)
-
-### 2. Installation
 ```bash
 git clone https://github.com/luka-loehr/receipt-printer.git
 cd receipt-printer
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 3. Setup & Run
-```bash
-# Complete setup in one command
 python setup.py
-
-# Generate your morning brief
 python morning_brief.py
 ```
 
-## 🔧 Setup Process
+## Setup
 
 The `setup.py` script automatically:
 - ✅ Configures API keys (OpenWeatherMap, Gemini)
@@ -47,33 +38,16 @@ The `setup.py` script automatically:
 - ✅ Sets up Google OAuth in your browser
 - ✅ Generates Gmail and Calendar tokens
 - ✅ Tests everything works
-- ✅ Makes your app ready to use!
 
-## 📁 Files
+## License
 
-```
-receipt-printer/
-├── setup.py                 # 🚀 Complete setup script
-├── morning_brief.py         # Main morning briefing generator
-├── data_services.py         # Real-time data fetching
-├── requirements.txt          # Python dependencies
-└── README.md                # This file
-```
+MIT License – Personal project
 
-## 🎯 What You Get
+## Support
 
-- **Morning Ritual**: Print daily briefing with coffee
-- **Meeting Prep**: Quick overview of day's schedule
-- **Email Triage**: Prioritized email summary
-- **Weather Check**: Current conditions and forecast
-- **Productivity Boost**: AI-generated daily insights
-
-## 🖨️ Printer Compatibility
-
-- **Width**: 58mm thermal printers (384px at 203 DPI)
-- **Format**: PNG output, optimized for thermal printing
-- **Resolution**: High-quality rendering with proper scaling
+- Issues: https://github.com/luka-loehr/receipt-printer/issues
+- Questions: contact@lukaloehr.de
 
 ---
 
-**That's it!** Just run `python setup.py` and you're ready to go! 🚀
+Developed by [Luka Löhr](https://github.com/luka-loehr) for personalized morning productivity.
