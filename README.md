@@ -1,80 +1,90 @@
-# 🖨️ Receipt Printer - Smart Daily Briefings
+# 🧾 Receipt Printer
 
-A Python application that generates beautiful, thermal-printer-ready receipts with real-time data including weather, emails, calendar events, and AI-powered insights.
+**Personalized German Morning Briefs for Thermal Printers**
+
+Generate beautiful, personalized morning briefings with real-time data from Google Calendar, Gmail, and weather services. Perfect for your morning coffee ritual! ☕
 
 ## ✨ Features
 
-- **🌤️ Real-time Weather**: Current conditions, high/low temps, humidity, wind speed
-- **📧 Smart Email Analysis**: AI-powered email prioritization and summarization
-- **📅 Calendar Integration**: Today's meetings and events
-- **🤖 AI Insights**: Gemini-powered daily motivation and insights
-- **🖨️ Thermal Printer Ready**: Optimized for 58mm thermal printers (384px width)
-- **🔄 Fallback System**: Gracefully degrades to mock data when APIs unavailable
-- **🔒 Secure**: OAuth2 for Google services, no direct inbox access
+- **🇩🇪 German Localization**: Complete German interface and AI insights
+- **📅 Real Calendar Data**: Live Google Calendar integration
+- **📧 Live Email Data**: Real-time Gmail processing with AI analysis
+- **🌤️ Weather Integration**: Current conditions and forecasts
+- **🤖 AI-Powered Insights**: Gemini AI generates personalized daily insights
+- **🖨️ Thermal Printer Ready**: Optimized for 58mm thermal printers
+- **🔐 Unified Google Auth**: Single credentials file for all Google services
 
 ## 🚀 Quick Start
 
-### 1. Clone and Setup
+### 1. Prerequisites
+- Python 3.8+
+- `google_credentials.json` from Google Cloud Console
+- Virtual environment (recommended)
 
+### 2. Installation
 ```bash
+# Clone the repository
 git clone https://github.com/luka-loehr/receipt-printer.git
 cd receipt-printer
+
+# Create virtual environment
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Run Setup Script
-
+### 3. One-Click Setup
 ```bash
+# Run the complete setup script
 python setup.py
 ```
 
-This will guide you through configuring:
-- OpenWeatherMap API key
-- Google Gemini API key
-- Gmail OAuth2 credentials
-- Google Calendar OAuth2 credentials
+**That's it!** The setup script will:
+- ✅ Ask for your API keys (OpenWeatherMap, Gemini)
+- ✅ Verify your `google_credentials.json` file
+- ✅ Set up Google OAuth in your browser
+- ✅ Generate Gmail and Calendar tokens
+- ✅ Test everything works
+- ✅ Make your app ready to use!
 
-### 3. Generate Receipts
-
+### 4. Generate Your First Brief
 ```bash
-# Generate morning briefing with real data
 python morning_brief.py
-
-# Generate standard receipt preview
-python receipt_preview.py
 ```
 
-## 🔑 API Setup
+## 🔧 Manual Setup (Alternative)
 
-### OpenWeatherMap (Free)
-1. Sign up at [OpenWeatherMap](https://openweathermap.org/api)
-2. Get your API key
-3. Add to `.env`: `OPENWEATHER_API_KEY=your_key_here`
+If you prefer manual setup:
 
-### Google Gemini (Free Tier)
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create API key
-3. Add to `.env`: `GEMINI_API_KEY=your_key_here`
+1. **Google Cloud Console Setup**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create project and enable Gmail + Calendar APIs
+   - Create OAuth 2.0 credentials
+   - Download as `google_credentials.json`
 
-### Gmail & Calendar (OAuth2)
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create project and enable APIs
-3. Create OAuth2 credentials
-4. Download as `google_credentials.json`
+2. **API Keys**:
+   - [OpenWeatherMap](https://openweathermap.org/api) (free tier)
+   - [Google Gemini](https://makersuite.google.com/app/apikey)
+
+3. **Environment Variables**:
+   ```bash
+   cp config.env.example .env
+   # Edit .env with your API keys
+   ```
 
 ## 📁 File Structure
 
 ```
 receipt-printer/
-├── morning_brief.py          # Main morning briefing generator
-├── receipt_preview.py        # Standard receipt generator
-├── data_services.py          # Real-time data fetching
-├── setup.py                  # Configuration helper
-├── config.env.example        # Environment variables template
+├── setup.py                 # 🚀 Complete setup script
+├── morning_brief.py         # Main morning briefing generator
+├── data_services.py         # Real-time data fetching
+├── config.env.example       # Environment variables template
 ├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+├── google_credentials.json  # Google OAuth credentials
+└── README.md                # This file
 ```
 
 ## 🎯 Use Cases
@@ -87,7 +97,7 @@ receipt-printer/
 
 ## 🔧 Configuration
 
-Edit `.env` file to customize:
+The setup script automatically creates and configures your `.env` file. You can customize:
 
 ```bash
 # Location for weather
@@ -157,4 +167,4 @@ This project is open source. Feel free to use and modify for your needs.
 
 ---
 
-**Happy Printing! ☕📄**
+**Need help?** The `python setup.py` script handles everything automatically! 🚀
