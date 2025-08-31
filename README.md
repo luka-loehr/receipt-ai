@@ -62,7 +62,7 @@ python receipt_preview.py
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create project and enable APIs
 3. Create OAuth2 credentials
-4. Download as `gmail_credentials.json` and `calendar_credentials.json`
+4. Download as `google_credentials.json`
 
 ## 📁 File Structure
 

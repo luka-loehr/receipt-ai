@@ -208,14 +208,14 @@ def draw_decorative_border(draw, y, height=3):
     return height + 2
 
 def get_greeting():
-    """Get time-appropriate greeting"""
+    """Get time-appropriate greeting in German"""
     hour = datetime.datetime.now().hour
     if hour < 12:
-        return "Good Morning"
+        return "Guten Morgen"
     elif hour < 17:
-        return "Good Afternoon"
+        return "Guten Tag"
     else:
-        return "Good Evening"
+        return "Guten Abend"
 
 def get_priority_symbol(priority):
     """Get visual indicator for priority"""
@@ -226,6 +226,59 @@ def get_priority_symbol(priority):
         "low": "[ ]"
     }
     return symbols.get(priority, "[ ]")
+
+def generate_german_overview(emails, events):
+    """Generate a German AI overview of the day"""
+    try:
+        # Count emails by type
+        total_emails = len(emails)
+        important_emails = [e for e in emails if e.priority == "high"]
+        github_emails = [e for e in emails if "github" in e.sender.lower()]
+        notification_emails = [e for e in emails if any(word in e.sender.lower() for word in ["google", "security", "notification", "alert"])]
+        
+        # Build German overview
+        overview_parts = []
+        
+        # Greeting
+        overview_parts.append(f"Guten Morgen Luka! Du hast {total_emails} neue E-Mails.")
+        
+        # Important emails
+        if important_emails:
+            important_count = len(important_emails)
+            overview_parts.append(f"Darunter {important_count} wichtige Nachrichten.")
+            
+            # Highlight specific important emails
+            for email in important_emails[:2]:  # Show first 2 important emails
+                if "github" in email.sender.lower():
+                    overview_parts.append(f"Eine wichtige von GitHub über {email.subject[:30]}...")
+                else:
+                    overview_parts.append(f"Eine wichtige von {email.sender} über {email.subject[:30]}...")
+        
+        # GitHub specific
+        if github_emails:
+            github_count = len(github_emails)
+            overview_parts.append(f"{github_count} GitHub Benachrichtigungen.")
+        
+        # Other notifications
+        if notification_emails:
+            notif_count = len(notification_emails)
+            overview_parts.append(f"{notif_count} andere Konto-Benachrichtigungen.")
+        
+        # Calendar events
+        if events:
+            event_count = len(events)
+            overview_parts.append(f"Du hast {event_count} Termine heute.")
+            
+            # Highlight first event
+            if events:
+                first_event = events[0]
+                overview_parts.append(f"Erster Termin: {first_event.title} um {first_event.start_time}")
+        
+        return " ".join(overview_parts)
+        
+    except Exception as e:
+        print(f"⚠️  German overview generation error: {e}")
+        return "Guten Morgen Luka! Du hast neue E-Mails und Termine heute."
 
 def create_morning_brief():
     """Generate the morning briefing receipt with high quality rendering"""
@@ -257,13 +310,23 @@ def create_morning_brief():
     y += draw_centered_text(draw, y, greeting, font_title)
     y += 15 * DPI_SCALE
     
+    # German AI Overview
+    y += draw_centered_text(draw, y, "🤖 KI-ÜBERSICHT", font_heading, GRAY_COLOR)
+    y += 20 * DPI_SCALE
+    
+    # Generate German AI overview
+    german_overview = generate_german_overview(emails, events)
+    y += draw_wrapped_text(draw, MARGIN, y, german_overview, font_normal, 
+                          PAPER_WIDTH - MARGIN * 2, FG_COLOR)
+    y += 25 * DPI_SCALE
+    
     # Subtitle
-    y += draw_centered_text(draw, y, "Your Daily Morning Brief", font_normal, GRAY_COLOR)
+    y += draw_centered_text(draw, y, "Dein Täglicher Morgenbrief", font_normal, GRAY_COLOR)
     y += 10 * DPI_SCALE
     
     # Date and time
     now = datetime.datetime.now()
-    date_str = now.strftime("%A, %B %d, %Y")
+    date_str = now.strftime("%A, %d. %B %Y")
     y += draw_centered_text(draw, y, date_str, font_small)
     y += 20 * DPI_SCALE
     
@@ -272,14 +335,14 @@ def create_morning_brief():
     y += 20 * DPI_SCALE
     
     # Weather section (using real data)
-    draw.text((MARGIN, y), "TODAY'S WEATHER", fill=FG_COLOR, font=font_heading)
+    draw.text((MARGIN, y), "HEUTIGES WETTER", fill=FG_COLOR, font=font_heading)
     y += 35 * DPI_SCALE
     
     weather_line1 = f"{weather.temperature} - {weather.condition}"
     draw.text((MARGIN + 20 * DPI_SCALE, y), weather_line1, fill=FG_COLOR, font=font_normal)
     y += 30 * DPI_SCALE
     
-    weather_line2 = f"High: {weather.high}  Low: {weather.low}"
+    weather_line2 = f"Höchst: {weather.high}  Tiefst: {weather.low}"
     draw.text((MARGIN + 20 * DPI_SCALE, y), weather_line2, fill=GRAY_COLOR, font=font_small)
     y += 35 * DPI_SCALE
     
@@ -288,13 +351,13 @@ def create_morning_brief():
     y += 20 * DPI_SCALE
     
     # Email summary section
-    draw.text((MARGIN, y), "EMAIL HIGHLIGHTS", fill=FG_COLOR, font=font_heading)
+    draw.text((MARGIN, y), "E-MAIL HIGHLIGHTS", fill=FG_COLOR, font=font_heading)
     y += 35 * DPI_SCALE
     
     # Statistics
     high_priority = sum(1 for e in emails if e.priority == "high")
     total = len(emails)
-    stats_text = f"{total} new - {high_priority} urgent"
+    stats_text = f"{total} neu - {high_priority} dringend"
     draw.text((MARGIN + 20 * DPI_SCALE, y), stats_text, fill=GRAY_COLOR, font=font_small)
     y += 35 * DPI_SCALE
     
@@ -333,12 +396,12 @@ def create_morning_brief():
     y += 10
     
     # Tasks/Reminders section
-    draw.text((MARGIN, y), "QUICK REMINDERS", fill=FG_COLOR, font=font_heading)
+    draw.text((MARGIN, y), "SCHNELLE ERINNERUNGEN", fill=FG_COLOR, font=font_heading)
     y += 35 * DPI_SCALE
     
     # Use real calendar events
     for event in events:
-        event_text = f"- {event.title} at {event.start_time}"
+        event_text = f"- {event.title} um {event.start_time}"
         if len(event_text) > 40:
             event_text = event_text[:37] + "..."
         draw.text((MARGIN + 20 * DPI_SCALE, y), event_text, fill=FG_COLOR, font=font_small)
@@ -361,12 +424,12 @@ def create_morning_brief():
     y += 8
     
     # Footer
-    y += draw_centered_text(draw, y, "Have a productive day!", font_small, GRAY_COLOR)
+    y += draw_centered_text(draw, y, "Hab einen produktiven Tag!", font_small, GRAY_COLOR)
     y += 4
     
     # Generation timestamp
-    gen_time = now.strftime("%I:%M %p")
-    y += draw_centered_text(draw, y, f"Generated at {gen_time}", font_tiny, GRAY_COLOR)
+    gen_time = now.strftime("%H:%M")
+    y += draw_centered_text(draw, y, f"Erstellt um {gen_time}", font_tiny, GRAY_COLOR)
     
     y += MARGIN
     
