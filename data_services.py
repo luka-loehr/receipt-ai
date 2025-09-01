@@ -421,8 +421,8 @@ class AIService:
         
         task_summaries = []
         for task in tasks:
-            priority_symbol = "🔴" if task.priority == "high" else "🟡" if task.priority == "medium" else "🟢"
-            task_summaries.append(f"{priority_symbol} {task.title}")
+            priority_text = f"[{task.priority.upper()}]" if task.priority != "medium" else ""
+            task_summaries.append(f"{priority_text} {task.title}".strip())
         
 
         
@@ -435,7 +435,9 @@ Aufgaben: {len(tasks)} total
 
 Erstelle:
 - Begrüßung: max 4 Wörter
-- Brief: ca. 80 Wörter, erwähne Wetter + wichtige E-Mails + heutige Termine + Aufgaben + Foto-Erinnerung"""
+- Brief: ca. 80 Wörter, erwähne Wetter + wichtige E-Mails + heutige Termine + Aufgaben
+
+WICHTIG: Verwende KEINE Emojis im Text - nur normale Buchstaben und Satzzeichen."""
         
         completion = self.client.chat.completions.parse(
             model="gpt-4o",
