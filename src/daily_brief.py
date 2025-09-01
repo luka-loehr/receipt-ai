@@ -261,9 +261,19 @@ def draw_decorative_border(draw, y, height=3):
     return height + 2
 
 def get_greeting():
-    """Get AI-generated time-appropriate greeting in German"""
-    # This will be called after the brief is generated, so we can use the cached response
-    return data_manager._cached_brief_response.greeting
+    """Get hardcoded time-appropriate greeting in German"""
+    import datetime
+    
+    current_hour = datetime.datetime.now().hour
+    
+    if 5 <= current_hour < 12:
+        return f"Guten Morgen, {USER_NAME}!"
+    elif 12 <= current_hour < 17:
+        return f"Guten Tag, {USER_NAME}!"
+    elif 17 <= current_hour < 22:
+        return f"Guten Abend, {USER_NAME}!"
+    else:
+        return f"Gute Nacht, {USER_NAME}!"
 
 def get_priority_symbol(priority):
     """Get visual indicator for priority"""
@@ -286,12 +296,39 @@ def generate_german_overview(emails, events):
         # Minimal fallback
         total_emails = len(emails)
         event_count = len(events)
-        return f"Guten Morgen {USER_NAME}! Du hast {total_emails} neue E-Mails und {event_count} Termine."
+        greeting = get_greeting()
+        return f"{greeting} Du hast {total_emails} neue E-Mails und {event_count} Termine."
 
 def generate_text_brief(brief_response, ai_brief):
     """Generate a plain text version that matches exactly what's on the PNG"""
+    import locale
+    
+    # Set German locale for date formatting
+    try:
+        locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_TIME, 'de_DE')
+        except locale.Error:
+            # Fallback to manual German month/day names
+            pass
+    
     now = datetime.datetime.now()
-    date_str = now.strftime("%A, %d. %B %Y")
+    
+    # German month and day names
+    german_months = {
+        1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
+        7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+    }
+    german_days = {
+        0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
+        4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
+    }
+    
+    # Create German date string
+    day_name = german_days[now.weekday()]
+    month_name = german_months[now.month]
+    date_str = f"{day_name}, {now.day}. {month_name} {now.year}"
     time_str = now.strftime("%H:%M")
     
     # Get tasks if available (same logic as PNG generation)
@@ -343,7 +380,8 @@ def generate_text_brief(brief_response, ai_brief):
             print(f"⚠️  Error generating shopping list for text: {e}")
     
     # Create text content that matches PNG exactly
-    text_content = f"""{brief_response.greeting}
+    greeting = get_greeting()
+    text_content = f"""{greeting}
 
 KI-Tagesbrief
 
@@ -362,11 +400,8 @@ Erstellt um {time_str}"""
 
 def create_daily_brief():
     """Generate the simplified AI-powered daily briefing receipt"""
-    # Fetch AI-generated comprehensive brief and greeting in one call
+    # Fetch AI-generated comprehensive brief
     brief_response = data_manager.get_daily_brief(USER_NAME)
-    
-    # Cache the response for the greeting function
-    data_manager._cached_brief_response = brief_response
     ai_brief = brief_response.brief
     
     # Also generate text version that matches PNG exactly
@@ -400,7 +435,22 @@ def create_daily_brief():
     
     # Date and time
     now = datetime.datetime.now()
-    date_str = now.strftime("%A, %d. %B %Y")
+    
+    # German month and day names
+    german_months = {
+        1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
+        7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+    }
+    german_days = {
+        0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
+        4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
+    }
+    
+    # Create German date string
+    day_name = german_days[now.weekday()]
+    month_name = german_months[now.month]
+    date_str = f"{day_name}, {now.day}. {month_name} {now.year}"
+    
     y += draw_centered_text(draw, y, date_str, font_small)
     y += 20 * DPI_SCALE
     
@@ -550,7 +600,7 @@ def main():
     
     # Print to thermal printer
     print("\n🖨️  Printing to thermal printer...")
-    greeting = brief_response.greeting
+    greeting = get_greeting()
     brief = brief_response.brief
     
     # Show what tasks are being sent to printer

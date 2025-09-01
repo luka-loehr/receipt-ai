@@ -4,7 +4,7 @@ German daily briefings for thermal printers. Fetches real data from Google APIs,
 
 ## Features
 
-- **German AI briefs** with OpenAI GPT-4o
+- **German AI briefs** with OpenAI GPT-4.1
 - **Real Google data**: Gmail, Calendar, Tasks
 - **Weather integration** with OpenWeatherMap
 - **Thermal printer support** via ESC/POS protocol

@@ -29,6 +29,7 @@ class WeatherData:
     wind_speed: str
     feels_like: str
     icon: str  # Weather icon/emoji
+    history: str = ""  # Weather history for the day
 
 @dataclass
 class EmailData:
@@ -70,7 +71,6 @@ class TaskData:
 # Pydantic models for structured AI output
 class MorningBriefResponse(BaseModel):
     """Structured response from AI for morning brief generation"""
-    greeting: str  # Time-appropriate greeting (e.g., "Guten Morgen, Luka")
     brief: str     # Main content brief
     # Future fields can be added here:
     # priority_tasks: List[str]
@@ -178,6 +178,9 @@ class WeatherService:
         weather_icon = current['weather'][0]['icon']
         icon_emoji = self._get_weather_icon(weather_icon)
         
+        # Create weather history summary
+        weather_history = f"Min: {round(daily['temp']['min'])}°C, Max: {round(daily['temp']['max'])}°C"
+        
         return WeatherData(
             temperature=f"{round(current['temp'])}°C",
             condition=current['weather'][0]['description'].title(),
@@ -186,7 +189,8 @@ class WeatherService:
             humidity=f"{current['humidity']}%",
             wind_speed=f"{round(current['wind_speed'] * 3.6, 1)} km/h",  # Convert m/s to km/h
             feels_like=f"{round(current['feels_like'])}°C",
-            icon=icon_emoji
+            icon=icon_emoji,
+            history=weather_history
         )
 
 class EmailService:
@@ -325,8 +329,9 @@ class CalendarService:
         # Build Calendar service
         service = build('calendar', 'v3', credentials=creds)
         
-        # Get next 3 days of events
-        now = datetime.utcnow().isoformat() + 'Z'
+        # Get events from start of today to 3 days from now
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        now = today_start.isoformat() + 'Z'  # Start from beginning of today
         end = (datetime.utcnow() + timedelta(days=3)).isoformat() + 'Z'
         
         events_result = service.events().list(
@@ -347,6 +352,16 @@ class CalendarService:
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))
             
+            # German month and day names
+            german_months = {
+                1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
+                7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+            }
+            german_days = {
+                0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
+                4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
+            }
+            
             if 'dateTime' in event['start']:
                 # Time-specific event
                 start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
@@ -354,7 +369,11 @@ class CalendarService:
                 start_time = start_dt.strftime("%H:%M")
                 end_time = end_dt.strftime("%H:%M")
                 start_date = start_dt.strftime("%Y-%m-%d")
-                start_datetime = start_dt.strftime("%A, %d. %B %Y um %H:%M")
+                
+                # Create German datetime string
+                day_name = german_days[start_dt.weekday()]
+                month_name = german_months[start_dt.month]
+                start_datetime = f"{day_name}, {start_dt.day}. {month_name} {start_dt.year} um {start_time}"
                 is_all_day = False
             else:
                 # All-day event
@@ -362,7 +381,11 @@ class CalendarService:
                 start_time = "Ganztägig"
                 end_time = ""
                 start_date = start_dt.strftime("%Y-%m-%d")
-                start_datetime = start_dt.strftime("%A, %d. %B %Y (ganztägig)")
+                
+                # Create German datetime string
+                day_name = german_days[start_dt.weekday()]
+                month_name = german_months[start_dt.month]
+                start_datetime = f"{day_name}, {start_dt.day}. {month_name} {start_dt.year} (ganztägig)"
                 is_all_day = True
             
             calendar_data.append(CalendarEvent(
@@ -380,7 +403,7 @@ class CalendarService:
         return calendar_data
 
 class AIService:
-    """Handles AI-powered analysis and summarization using OpenAI GPT-4o with structured output"""
+    """Handles AI-powered analysis and summarization using OpenAI GPT-4.1 with structured output"""
     
     def __init__(self):
         self.api_key = os.getenv('OPENAI_API_KEY')
@@ -391,46 +414,124 @@ class AIService:
         self.client = OpenAI(api_key=self.api_key)
         print("✅ OpenAI AI service initialized successfully")
     
-    def generate_morning_brief(self, weather: WeatherData, emails: List[EmailData], events: List[CalendarEvent], tasks: List[TaskData], user_name: str = "Luka") -> MorningBriefResponse:
+    def generate_morning_brief(self, weather: WeatherData, emails: List[EmailData], events: List[CalendarEvent], tasks: List[TaskData], shopping_list: List[TaskData] = None, user_name: str = "Luka") -> MorningBriefResponse:
         """Generate both greeting and comprehensive brief in a single API call with structured output"""
         
-        # Prepare data for AI analysis
+        # Prepare detailed data for AI analysis
         email_summaries = []
+        important_emails = []
         for email in emails:
             email_summaries.append(f"Von: {email.sender}, Betreff: {email.subject}")
+            if email.is_important:
+                important_emails.append(f"WICHTIG: {email.sender} - {email.subject}")
         
         # Get current date and time for context
         current_time = datetime.datetime.now()
-        today_str = current_time.strftime("%A, %d. %B %Y")
+        
+        # German month and day names
+        german_months = {
+            1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
+            7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+        }
+        german_days = {
+            0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
+            4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
+        }
+        
+        # Create German date strings
+        day_name = german_days[current_time.weekday()]
+        month_name = german_months[current_time.month]
+        today_str = f"{day_name}, {current_time.day}. {month_name} {current_time.year}"
         time_str = current_time.strftime("%H:%M")
-        day_of_week = current_time.strftime("%A")  # Monday, Tuesday, etc.
+        day_of_week = day_name  # Use German day name
         
+        # Prepare event summaries with better formatting
         event_summaries = []
+        all_today_events = []  # All events for today (including past ones)
+        upcoming_events = []
         for event in events:
-            event_summaries.append(f"{event.title} - {event.start_datetime}")
+            event_summary = f"{event.title} - {event.start_datetime}"
+            event_summaries.append(event_summary)
+            if event.start_date == current_time.strftime("%Y-%m-%d"):
+                all_today_events.append(event_summary)
+            else:
+                upcoming_events.append(event_summary)
         
+        # Prepare task summaries with priorities and due dates
         task_summaries = []
+        high_priority_tasks = []
+        overdue_tasks = []
         for task in tasks:
             priority_text = f"[{task.priority.upper()}]" if task.priority != "medium" else ""
-            task_summaries.append(f"{priority_text} {task.title}".strip())
+            due_info = f" (fällig: {task.due_date})" if task.due_date else ""
+            task_summary = f"{priority_text} {task.title}{due_info}".strip()
+            task_summaries.append(task_summary)
+            
+            if task.priority == "high":
+                high_priority_tasks.append(task_summary)
+            
+            # Check for overdue tasks
+            if task.due_date:
+                try:
+                    due_dt = datetime.datetime.strptime(task.due_date, "%Y-%m-%d")
+                    if due_dt < current_time:
+                        overdue_tasks.append(task_summary)
+                except:
+                    pass
         
-
+        # Get shopping list items
+        shopping_items = [item.title for item in shopping_list] if shopping_list else []
         
-        prompt = f"""Deutscher Tagesüberblick für {user_name} - {day_of_week}, {time_str}
+        # Build final refined casual prompt
+        prompt = f"""
+Du bist mein persönlicher Assistent und gibst mir einen kurzen, lockeren Tagesüberblick für {day_of_week}, {time_str}. Schreib so, wie ein Freund oder Klassenkamerad es tun würde: direkt, ehrlich, entspannt – nicht übertrieben cool, aber auf Augenhöhe.
 
-Wetter: Jetzt {weather.temperature}°C, heute {weather.low}-{weather.high}°C, {weather.condition}
-E-Mails: {len(emails)} total
-Termine: {chr(10).join(event_summaries)}
-Aufgaben: {len(tasks)} total
+KONTEXT
+Aktuelles Wetter: {weather.temperature}, {weather.condition}
+Wetterverlauf heute: {weather.history}
+Zeit: {time_str} Uhr
 
-Erstelle:
-- Begrüßung: max 4 Wörter
-- Brief: ca. 80 Wörter, erwähne Wetter + wichtige E-Mails + heutige Termine + Aufgaben
+E-Mails ({len(emails)}):
+{chr(10).join(email_summaries[:5])}
+{chr(10).join(important_emails) if important_emails else ""}
 
-WICHTIG: Verwende KEINE Emojis im Text - nur normale Buchstaben und Satzzeichen."""
+Alle heutigen Termine (inkl. bereits vergangener):
+{chr(10).join(all_today_events) if all_today_events else "Keine Termine heute"}
+
+Kommende Termine:
+{chr(10).join(upcoming_events) if upcoming_events else "Keine kommenden Termine"}
+
+Aufgaben ({len(tasks)}):
+{chr(10).join(task_summaries[:8])}
+{chr(10).join(overdue_tasks) if overdue_tasks else ""}
+{chr(10).join(high_priority_tasks) if high_priority_tasks else ""}
+
+Einkaufen ({len(shopping_items)}):
+{chr(10).join(shopping_items[:5]) if shopping_items else "Keine Einkäufe geplant"}
+
+ZEITLOGIK:
+– Vor 12:00 Uhr: Fokus auf Tagesplanung, anstehende Dinge, was zuerst erledigt werden muss.
+– 12:00–17:59 Uhr: Fokus auf das, was noch offen ist und erledigt werden sollte.
+– 18:00–19:59 Uhr: Kurzer Rückblick auf den Tag, Restaufgaben, evtl. Vorbereitung auf morgen.
+– Ab 20:00 Uhr: Kein Tagesplan mehr! Kein „mach noch schnell…", kein Wetter-Tipp, keine Aktivität mehr draußen. Nur:
+  – Was du heute noch digital oder ganz easy machen könntest (z. B. E-Mail, Wecker stellen)
+  – Was morgen früh direkt ansteht
+  – Ehrlicher Rückblick auf den Tag (inkl. Termine, Wetter, Aufgabenstatus)
+
+STIL:
+– Locker, direkt, in „du"-Form – wie unter Jugendlichen
+– Kein Business-Stil, kein Förmlichkeits-Gelaber
+– Keine Listen, keine Formatierung, keine künstliche Struktur
+– Schreib wie ein echter Mensch: kurze klare Sätze, realistisch und alltagsnah
+– Nichts erfinden: Wenn's geregnet hat, sag das. Wenn nichts anstand, dann kurz halten.
+– Keine Floskeln wie „einfach mal entspannen" oder „Zeit zum Runterkommen", außer es ergibt sich natürlich.
+
+AUSGABE:
+Gib **nur den fertigen Text** als Fließtext zurück. Keine Überschrift, kein Markdown, kein Rahmen, keine Meta-Infos. Einfach losschreiben.
+"""
         
         completion = self.client.chat.completions.parse(
-            model="gpt-4o",
+            model="gpt-4.1",
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -705,7 +806,7 @@ class DataManager:
         print(f"   🛒 Found {len(shopping_list)} shopping items")
         
         print("🤖 Generating AI brief...")
-        brief_response = self.ai_service.generate_morning_brief(weather, emails, events, tasks, user_name)
+        brief_response = self.ai_service.generate_morning_brief(weather, emails, events, tasks, shopping_list, user_name)
         
         # Store shopping list for use in daily brief generation
         self.shopping_list = shopping_list
@@ -721,7 +822,5 @@ if __name__ == "__main__":
     manager = DataManager()
     brief_response = manager.get_morning_brief()
     
-    print(f"\n👋 AI Greeting:")
-    print(brief_response.greeting)
     print(f"\n🤖 AI Brief:")
     print(brief_response.brief)
