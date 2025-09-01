@@ -412,7 +412,7 @@ def setup_openai():
     print()
     
     print("💰 Pricing info:")
-    print("   • GPT-4o: ~$0.005 per 1K input tokens, ~$0.015 per 1K output tokens")
+    print("   • GPT-4.1: ~$0.005 per 1K input tokens, ~$0.015 per 1K output tokens")
     print("   • Morning brief: ~$0.01-0.02 per generation")
     print("   • Set usage limits at: https://platform.openai.com/usage")
     print()
@@ -458,7 +458,7 @@ def test_openai_api(api_key):
         
         # Test with a simple completion
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "Say 'Hello, API test successful!' in German."}

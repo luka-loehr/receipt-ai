@@ -91,9 +91,21 @@ class ThermalPrinter:
             self.printer.set(align='center', font='a', width=1, height=1)
             self.printer.text("KI-Tagesbrief\n")
             
-            # Date
+            # Date (German format)
             from datetime import datetime
-            date_str = datetime.now().strftime("%A, %d. %B %Y")
+            now = datetime.now()
+            german_months = {
+                1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
+                7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+            }
+            german_days = {
+                0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
+                4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
+            }
+            
+            day_name = german_days[now.weekday()]
+            month_name = german_months[now.month]
+            date_str = f"{day_name}, {now.day}. {month_name} {now.year}"
             self.printer.text(f"{date_str}\n\n")
             
             # Separator
@@ -316,7 +328,8 @@ def main():
         printer.test_print()
         
         # Test daily brief
-        test_greeting = "Guten Morgen, Luka!"
+        from .daily_brief import get_greeting
+        test_greeting = get_greeting()
         test_brief = "Heute wird ein produktiver Tag. Das Wetter ist sonnig und du hast 3 wichtige E-Mails und 2 Termine."
         test_tasks = ["E-Mail beantworten", "Meeting vorbereiten", "Projekt planen"]
         
