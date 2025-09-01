@@ -196,12 +196,20 @@ def generate_text_brief(brief_response, ai_brief):
             if tasks:
                 tasks_text = "\n✅ AUFGABEN\n\n"
                 for i, task in enumerate(tasks[:5], 1):
-                    priority_symbol = "🔴" if task.priority == "high" else "🟡" if task.priority == "medium" else "🟢"
-                    # Use the same truncation logic as PNG (50 chars max)
+                    # Use the same truncation logic as PNG (70 chars max) with smart word handling
                     task_title = task.title
-                    if len(f"{priority_symbol} {task_title}") > 50:
-                        task_title = task_title[:47] + "..."
-                    tasks_text += f"☐ {priority_symbol} {task_title}\n"
+                    if len(task_title) > 70:
+                        # Find the last complete word that fits within 70 chars
+                        max_chars = 67  # Leave room for "..."
+                        words = task_title.split()
+                        truncated_title = ""
+                        for word in words:
+                            if len(truncated_title + " " + word) <= max_chars:
+                                truncated_title += (" " if truncated_title else "") + word
+                            else:
+                                break
+                        task_title = truncated_title + "..." if truncated_title else task_title[:67] + "..."
+                    tasks_text += f"{task_title}\n"
         except Exception as e:
             print(f"⚠️  Error generating tasks for text: {e}")
     
@@ -298,13 +306,19 @@ def create_daily_brief():
                     draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
                                  outline=FG_COLOR, width=1)
                     
-                    # Priority indicator
-                    priority_symbol = "🔴" if task.priority == "high" else "🟡" if task.priority == "medium" else "🟢"
-                    
-                    # Task text (with priority emoji)
-                    task_text = f"{priority_symbol} {task.title}"
-                    if len(task_text) > 50:  # Truncate long task names
-                        task_text = task_text[:47] + "..."
+                    # Task text (no priority indicator)
+                    task_text = task.title
+                    if len(task_text) > 70:  # Truncate long task names with smart word handling
+                        # Find the last complete word that fits within 70 chars
+                        max_chars = 67  # Leave room for "..."
+                        words = task.title.split()
+                        truncated_title = ""
+                        for word in words:
+                            if len(truncated_title + " " + word) <= max_chars:
+                                truncated_title += (" " if truncated_title else "") + word
+                            else:
+                                break
+                        task_text = truncated_title + "..." if truncated_title else task.title[:67] + "..."
                     
                     # Draw task text
                     draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), task_text, 
