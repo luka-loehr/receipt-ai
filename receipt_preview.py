@@ -28,7 +28,7 @@ TAX_RATE = 0.08  # 8% tax
 FOOTER_TEXT = "Thank you for testing!"
 
 # Output settings
-OUTPUT_FILE = "receipt_preview.png"
+OUTPUT_FILE = "outputs/receipt_preview.png"
 SHOW_TIMESTAMP = True
 # ====================================================================
 

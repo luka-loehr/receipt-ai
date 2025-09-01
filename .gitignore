@@ -5,6 +5,7 @@ calendar_token.json
 *.json
 
 # Generated images
+outputs/
 *.png
 *.jpg
 *.jpeg

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Data Services Module
-Handles real-time data fetching for weather, emails, calendar, and AI summarization
+Handles real-time data fetching for weather, emails, calendar, tasks, and AI summarization
 """
 
 import os
@@ -52,6 +52,16 @@ class CalendarEvent:
     is_all_day: bool
     start_date: str  # Full date (e.g., "2025-01-20")
     start_datetime: str  # Full datetime for AI context
+
+@dataclass
+class TaskData:
+    """Google Task information structure"""
+    title: str
+    notes: str
+    due_date: str
+    completed: bool
+    priority: str
+    task_id: str
 
 # Pydantic models for structured AI output
 class MorningBriefResponse(BaseModel):
@@ -387,7 +397,7 @@ class AIService:
         self.client = OpenAI(api_key=self.api_key)
         print("✅ OpenAI AI service initialized successfully")
     
-    def generate_morning_brief(self, weather: WeatherData, emails: List[EmailData], events: List[CalendarEvent], user_name: str = "Luka") -> MorningBriefResponse:
+    def generate_morning_brief(self, weather: WeatherData, emails: List[EmailData], events: List[CalendarEvent], tasks: List[TaskData], user_name: str = "Luka") -> MorningBriefResponse:
         """Generate both greeting and comprehensive brief in a single API call with structured output"""
         
         # Prepare data for AI analysis
@@ -399,51 +409,31 @@ class AIService:
         current_time = datetime.datetime.now()
         today_str = current_time.strftime("%A, %d. %B %Y")
         time_str = current_time.strftime("%H:%M")
+        day_of_week = current_time.strftime("%A")  # Monday, Tuesday, etc.
         
         event_summaries = []
         for event in events:
             event_summaries.append(f"{event.title} - {event.start_datetime}")
         
-        prompt = f"""
-        Erstelle einen kompakten, informativen Tagesüberblick AUF DEUTSCH für {user_name}. 
+        task_summaries = []
+        for task in tasks:
+            priority_symbol = "🔴" if task.priority == "high" else "🟡" if task.priority == "medium" else "🟢"
+            task_summaries.append(f"{priority_symbol} {task.title}")
         
-        AKTUELLE ZEIT: {time_str} am {today_str}
-        
-        Analysiere die E-Mails und erwähne nur die WICHTIGSTEN (z.B. von wichtigen Personen, dringende Themen, Termine).
-        Ignoriere unwichtige E-Mails wie Newsletter, Notifications, etc.
-        
-        Wetter: {weather.icon} {weather.temperature} ({weather.condition}), heute {weather.high}/{weather.low}°C
-        
-        E-Mails ({len(emails)} insgesamt):
-        {chr(10).join(email_summaries)}
-        
-        Termine (mit vollständigen Datum/Zeit):
-        {chr(10).join(event_summaries)}
-        
-        Erstelle:
-        1. Eine passende Begrüßung basierend auf der aktuellen Zeit ({time_str}):
-           - Früher Morgen (05:00-09:00): "Guten Morgen, {user_name}"
-           - Vormittag (09:00-12:00): "Guten Morgen, {user_name}" oder "Guten Vormittag, {user_name}"
-           - Nachmittag (12:00-17:00): "Guten Tag, {user_name}" oder "Guten Nachmittag, {user_name}"
-           - Abend (17:00-22:00): "Guten Abend, {user_name}"
-           - Nacht (22:00-05:00): "Gute Nacht, {user_name}" oder "Guten Abend, {user_name}"
-           
-           WICHTIG: Verwende den Namen {user_name} nur EINMAL in der Begrüßung!
-        
-        2. Einen fließenden deutschen Text (ca. 3-5 Sätze) der:
-           - Das Wetter mit Icon und Vorhersage erwähnt
-           - NUR die wichtigsten E-Mails hervorhebt (nicht alle!)
-           - NUR die heutigen Termine auflistet (nicht zukünftige Tage!)
-           - Mit einer motivierenden Note endet
-        
-        WICHTIG: Erwähne nur Termine die HEUTE ({today_str}) stattfinden. Ignoriere Termine an anderen Tagen.
-        Verwende keine Aufzählungen. Schreibe natürlich und freundlich. Das Wetter-Icon (in eckigen Klammern) kann verwendet werden.
-        """
+        prompt = f"""Deutscher Tagesüberblick für {user_name} - {day_of_week}, {time_str}
+
+Wetter: Jetzt {weather.temperature}°C, heute {weather.low}-{weather.high}°C, {weather.condition}
+E-Mails: {len(emails)} total
+Termine: {chr(10).join(event_summaries)}
+Aufgaben: {len(tasks)} total
+
+Erstelle:
+- Begrüßung: max 4 Wörter
+- Brief: ca. 80 Wörter, erwähne Wetter + wichtige E-Mails + heutige Termine + Aufgaben"""
         
         completion = self.client.chat.completions.parse(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "Du bist ein hilfreicher Assistent, der Tagesüberblicke auf Deutsch erstellt. Du antwortest immer im JSON-Format mit 'greeting' und 'brief' Feldern."},
                 {"role": "user", "content": prompt}
             ],
             response_format=MorningBriefResponse
@@ -455,6 +445,117 @@ class AIService:
         else:
             raise Exception(f"AI refused to generate content: {message.refusal}")
 
+class TaskService:
+    """Handles Google Tasks data fetching"""
+    
+    def __init__(self):
+        # Use the unified Google credentials file
+        self.credentials_file = os.getenv('GOOGLE_CREDENTIALS_FILE', 'google_credentials.json')
+        self.max_tasks = int(os.getenv('MAX_TASKS_TO_PROCESS', '10'))
+        
+        if not os.path.exists(self.credentials_file):
+            print("⚠️  Warning: No Google credentials found. Using mock data.")
+    
+    def get_tasks(self) -> List[TaskData]:
+        """Get recent tasks - requires Google credentials"""
+        if not os.path.exists(self.credentials_file):
+            raise Exception("Google credentials file required")
+        
+        # Real Google Tasks API integration
+        from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+        from google_auth_oauthlib.flow import InstalledAppFlow
+        from googleapiclient.discovery import build
+        
+        SCOPES = ['https://www.googleapis.com/auth/tasks.readonly']
+        
+        # Get credentials
+        creds = None
+        if os.path.exists('tasks_token.json'):
+            creds = Credentials.from_authorized_user_file('tasks_token.json', SCOPES)
+        
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(self.credentials_file, SCOPES)
+                creds = flow.run_local_server(port=0)
+            
+            # Save the credentials for the next run
+            with open('tasks_token.json', 'w') as token:
+                token.write(creds.to_json())
+        
+        # Build Tasks service
+        service = build('tasks', 'v1', credentials=creds)
+        
+        # Get tasks from the default task list
+        try:
+            # First get the default task list
+            task_lists = service.tasklists().list().execute()
+            default_list = None
+            
+            # Find the default task list (usually "@default")
+            for task_list in task_lists.get('items', []):
+                if task_list.get('id') == '@default':
+                    default_list = task_list
+                    break
+            
+            if not default_list:
+                # If no @default list, use the first available one
+                default_list = task_lists.get('items', [{}])[0]
+            
+            list_id = default_list.get('id')
+            
+            # Get tasks from the selected list
+            tasks_result = service.tasks().list(
+                tasklist=list_id,
+                maxResults=self.max_tasks,
+                showCompleted=False,  # Only show incomplete tasks
+                showHidden=False
+            ).execute()
+            
+            tasks = tasks_result.get('items', [])
+            task_data = []
+            
+            for task in tasks:
+                # Skip completed tasks
+                if task.get('status') == 'completed':
+                    continue
+                
+                # Parse due date if available
+                due_date = ""
+                if 'due' in task:
+                    try:
+                        due_dt = datetime.datetime.fromisoformat(task['due'].replace('Z', '+00:00'))
+                        due_date = due_dt.strftime("%Y-%m-%d")
+                    except:
+                        due_date = task['due']
+                
+                # Determine priority
+                priority = "medium"
+                if 'notes' in task and task['notes']:
+                    notes_lower = task['notes'].lower()
+                    if any(word in notes_lower for word in ['urgent', 'high', 'important']):
+                        priority = "high"
+                    elif any(word in notes_lower for word in ['low', 'optional']):
+                        priority = "low"
+                
+                task_data.append(TaskData(
+                    title=task.get('title', 'Untitled Task'),
+                    notes=task.get('notes', ''),
+                    due_date=due_date,
+                    completed=False,
+                    priority=priority,
+                    task_id=task.get('id', '')
+                ))
+            
+            return task_data
+            
+        except Exception as e:
+            print(f"⚠️  Error fetching tasks: {e}")
+            # Return empty list if there's an error
+            return []
+
 class DataManager:
     """Main data manager that coordinates all services"""
     
@@ -462,10 +563,11 @@ class DataManager:
         self.weather_service = WeatherService()
         self.email_service = EmailService()
         self.calendar_service = CalendarService()
+        self.task_service = TaskService()
         self.ai_service = AIService()
     
-    def get_morning_brief(self, user_name: str = "Luka") -> MorningBriefResponse:
-        """Fetch all data and return AI-generated morning brief with greeting in a single API call"""
+    def get_daily_brief(self, user_name: str = "Luka") -> MorningBriefResponse:
+        """Fetch all data and return AI-generated daily brief with greeting in a single API call"""
         print("🌤️  Fetching weather data...")
         weather = self.weather_service.get_current_weather()
         
@@ -475,10 +577,17 @@ class DataManager:
         print("📅  Fetching calendar data...")
         events = self.calendar_service.get_upcoming_events()
         
+        print("✅  Fetching task data...")
+        tasks = self.task_service.get_tasks()
+        
         print("🤖  Generating AI brief and greeting...")
-        brief_response = self.ai_service.generate_morning_brief(weather, emails, events, user_name)
+        brief_response = self.ai_service.generate_morning_brief(weather, emails, events, tasks, user_name)
         
         return brief_response
+    
+    def get_morning_brief(self, user_name: str = "Luka") -> MorningBriefResponse:
+        """Alias for get_daily_brief for backward compatibility"""
+        return self.get_daily_brief(user_name)
 
 if __name__ == "__main__":
     # Test the data services
