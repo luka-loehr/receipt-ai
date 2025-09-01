@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Morning Brief Generator — Daily Email Summary Receipt
-Creates a beautiful 58mm thermal printer briefing with your daily emails
+Daily Brief Generator — Personalized Daily Summary Receipt
+Creates a beautiful 58mm thermal printer briefing with your daily overview
 """
 
 from PIL import Image, ImageDraw, ImageFont
@@ -13,10 +13,10 @@ import platform
 
 # ============== CONFIGURATION ==============
 USER_NAME = "Luka"
-OUTPUT_FILE = "morning_brief.png"
+OUTPUT_FILE = "outputs/daily_brief.png"
 
 # Import real data services
-from data_services import DataManager, WeatherData, EmailData, CalendarEvent
+from data_services import DataManager, WeatherData, EmailData, CalendarEvent, TaskData
 
 # Initialize data manager
 data_manager = DataManager()
@@ -41,124 +41,49 @@ FG_COLOR = "black"
 GRAY_COLOR = "#666666"
 
 def load_font(size=16, bold=False, mono=False):
-    """Load appropriate fonts for the receipt with better quality"""
+    """Load fonts using cross-platform compatible approach with Unicode support"""
     # Scale font size for higher DPI
     size = size * DPI_SCALE
     
-    # Linux font paths with better options (try these first)
-    linux_font_options = [
-        # DejaVu fonts (high quality, commonly available)
-        {
-            "regular": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "bold": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "mono": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
-        },
-        # Liberation fonts (good quality)
-        {
-            "regular": "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-            "bold": "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "mono": "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
-        },
-        # Ubuntu fonts
-        {
-            "regular": "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
-            "bold": "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-            "mono": "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf"
-        },
-        # Free fonts
-        {
-            "regular": "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "bold": "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-            "mono": "/usr/share/fonts/truetype/freefont/FreeMono.ttf"
-        },
-        # Noto fonts
-        {
-            "regular": "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-            "bold": "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
-            "mono": "/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf"
-        }
-    ]
+    # Try to find a system font that supports German characters
+    font_paths = []
     
-    # macOS font paths with better options
-    macos_font_options = [
-        # SF Pro (Apple's system font) - best quality
-        {
-            "regular": "/System/Library/Fonts/SFNS.ttf",
-            "bold": "/System/Library/Fonts/SFNS-Bold.ttf",
-            "mono": "/System/Library/Fonts/Monaco.dfont"
-        },
-        # Helvetica Neue (high quality)
-        {
-            "regular": "/System/Library/Fonts/Helvetica.ttc",
-            "bold": "/System/Library/Fonts/Helvetica.ttc",
-            "mono": "/System/Library/Fonts/Menlo.ttc"
-        },
-        # Avenir (modern, clean)
-        {
-            "regular": "/System/Library/Fonts/Avenir Next.ttc",
-            "bold": "/System/Library/Fonts/Avenir Next.ttc",
-            "mono": "/System/Library/Fonts/Courier.dfont"
-        },
-        # System fonts
-        {
-            "regular": "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "bold": "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-            "mono": "/System/Library/Fonts/Supplemental/Courier New.ttf"
-        }
-    ]
+    # Common system fonts that support international characters
+    if os.name == 'nt':  # Windows
+        font_paths = [
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "C:\\Windows\\Fonts\\calibri.ttf",
+            "C:\\Windows\\Fonts\\segoeui.ttf",
+            "C:\\Windows\\Fonts\\tahoma.ttf"
+        ]
+    elif os.name == 'posix':  # macOS and Linux
+        if platform.system() == 'Darwin':  # macOS
+            font_paths = [
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/System/Library/Fonts/Arial.ttf",
+                "/Library/Fonts/Arial.ttf"
+            ]
+        else:  # Linux
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"
+            ]
     
-    # Choose font options based on platform
-    if platform.system() == "Linux":
-        font_options = linux_font_options + macos_font_options
-    else:
-        font_options = macos_font_options
-    
-    # Determine which font type to load
-    if mono:
-        font_key = "mono"
-    elif bold:
-        font_key = "bold"
-    else:
-        font_key = "regular"
-    
-    # Try each font option
-    for font_set in font_options:
-        font_path = font_set[font_key]
+    # Try to load a system font
+    for font_path in font_paths:
         if os.path.exists(font_path):
             try:
-                font = ImageFont.truetype(font_path, int(size))
-                # For fonts in TTC collections, try to get the right index
-                if bold and font_path.endswith('.ttc'):
-                    # Try bold variant index (usually 1 or 2)
-                    try:
-                        font = ImageFont.truetype(font_path, int(size), index=1)
-                    except:
-                        pass
-                return font
-            except Exception as e:
+                return ImageFont.truetype(font_path, int(size))
+            except Exception:
                 continue
     
-    # Fallback to PIL's better default
+    # Fallback to default font if no system fonts found
     try:
-        from PIL import ImageFont
-        if platform.system() == "Linux":
-            # Try a common Linux font as fallback
-            fallback_paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-            ]
-            for path in fallback_paths:
-                if os.path.exists(path):
-                    return ImageFont.truetype(path, int(size))
-        else:
-            return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(size))
-    except:
-        pass
-    
-    # Ultimate fallback
-    default = ImageFont.load_default()
-    # Try to scale the default font
-    return default
+        return ImageFont.load_default(size=int(size))
+    except Exception:
+        return ImageFont.load_default()
 
 def draw_centered_text(draw, y, text, font, color=FG_COLOR):
     """Draw centered text"""
@@ -256,11 +181,11 @@ def generate_german_overview(emails, events):
         event_count = len(events)
         return f"Guten Morgen {USER_NAME}! Du hast {total_emails} neue E-Mails und {event_count} Termine."
 
-def create_morning_brief():
-    """Generate the simplified AI-powered morning briefing receipt"""
+def create_daily_brief():
+    """Generate the simplified AI-powered daily briefing receipt"""
     # Fetch AI-generated comprehensive brief and greeting in one call
     print("🔄 Generating AI brief and greeting...")
-    brief_response = data_manager.get_morning_brief(USER_NAME)
+    brief_response = data_manager.get_daily_brief(USER_NAME)
     
     # Cache the response for the greeting function
     data_manager._cached_brief_response = brief_response
@@ -307,12 +232,54 @@ def create_morning_brief():
                           PAPER_WIDTH - MARGIN * 2, FG_COLOR, line_spacing_multiplier=1.4)
     y += 25 * DPI_SCALE
     
+    # Tasks Section
+    if hasattr(data_manager, 'task_service'):
+        try:
+            tasks = data_manager.task_service.get_tasks()
+            if tasks:
+                # Section header
+                y += draw_separator(draw, y, "dashed", 1 * DPI_SCALE)
+                y += 15 * DPI_SCALE
+                
+                # "Aufgaben" title
+                y += draw_centered_text(draw, y, "✅ AUFGABEN", font_small, GRAY_COLOR)
+                y += 15 * DPI_SCALE
+                
+                # Draw tasks with checkboxes
+                for i, task in enumerate(tasks[:5]):  # Limit to 5 tasks for space
+                    # Checkbox (empty square)
+                    checkbox_x = MARGIN + 10 * DPI_SCALE
+                    checkbox_size = 12 * DPI_SCALE
+                    draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
+                                 outline=FG_COLOR, width=1)
+                    
+                    # Priority indicator
+                    priority_symbol = "🔴" if task.priority == "high" else "🟡" if task.priority == "medium" else "🟢"
+                    
+                    # Task text (with priority emoji)
+                    task_text = f"{priority_symbol} {task.title}"
+                    if len(task_text) > 35:  # Truncate long task names
+                        task_text = task_text[:32] + "..."
+                    
+                    # Draw task text
+                    draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), task_text, 
+                             fill=FG_COLOR, font=font_tiny)
+                    
+                    y += checkbox_size + 8 * DPI_SCALE
+                    
+                    # Add small spacing between tasks
+                    if i < len(tasks) - 1:
+                        y += 5 * DPI_SCALE
+                
+                y += 15 * DPI_SCALE
+        except Exception as e:
+            print(f"⚠️  Error displaying tasks: {e}")
+    
     # Bottom decorative border
     y += draw_decorative_border(draw, y)
     y += 15 * DPI_SCALE
     
-    # Footer
-    y += draw_centered_text(draw, y, "Hab einen produktiven Tag!", font_small, GRAY_COLOR)
+    # Generation timestamp
     y += 8 * DPI_SCALE
     
     # Generation timestamp
@@ -332,20 +299,20 @@ def create_morning_brief():
     return img
 
 def main():
-    """Generate and save the morning briefing"""
-    print("☀️  Generating your morning briefing...")
+    """Generate and save the daily briefing"""
+    print("📅  Generating your daily briefing...")
     
     # Create briefing
-    brief_img = create_morning_brief()
+    brief_img = create_daily_brief()
     
     # Save
     brief_img.save(OUTPUT_FILE)
     
     # Success message
-    print(f"✅ Morning brief created: {OUTPUT_FILE}")
+    print(f"✅ Daily brief created: {OUTPUT_FILE}")
     print(f"📐 Dimensions: {brief_img.width}x{brief_img.height}px")
     print(f"📄 Paper width: 58mm (384px)")
-    print("\n☕ Perfect for your morning coffee ritual!")
+    print("\n☕ Perfect for your daily productivity ritual!")
     
     # Auto-open image
     try:

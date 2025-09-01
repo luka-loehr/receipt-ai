@@ -20,6 +20,11 @@ def check_google_credentials():
     """Check if google_credentials.json exists"""
     if os.path.exists('google_credentials.json'):
         print("✅ google_credentials.json found in root directory")
+        print("   Make sure you have enabled these APIs in Google Cloud Console:")
+        print("   - Gmail API")
+        print("   - Google Calendar API") 
+        print("   - Google Tasks API")
+        print("   Visit: https://console.developers.google.com/apis")
         return True
     else:
         print("❌ google_credentials.json not found")
@@ -343,8 +348,8 @@ def final_test():
         print("📊 Testing data services...")
         manager = DataManager()
         
-        # Test the new structured morning brief
-        brief_response = manager.get_morning_brief()
+        # Test the new structured daily brief
+        brief_response = manager.get_daily_brief()
         
         print(f"✅ Greeting: {brief_response.greeting}")
         print(f"✅ Brief: {brief_response.brief[:100]}...")
@@ -385,8 +390,8 @@ def main():
         print("✅ Your Receipt Printer is ready to use!")
         print()
         print("🚀 Next steps:")
-        print("   1. Run: python morning_brief.py")
-        print("   2. Enjoy your personalized German morning brief!")
+        print("   1. Run: python daily_brief.py")
+        print("   2. Enjoy your personalized German daily brief!")
         print()
         print("📚 Need help? Check README.md for usage instructions")
     else:

@@ -13,8 +13,9 @@ Generate beautiful, personalized morning briefings with real-time data from Goog
 - **🇩🇪 German Localization**: Complete German interface and AI insights
 - **📅 Real Calendar Data**: Live Google Calendar integration  
 - **📧 Live Email Data**: Real-time Gmail processing with AI analysis
+- **✅ Task Management**: Google Tasks integration with priority indicators
 - **🌤️ Weather Integration**: Current conditions and forecasts
-- **🤖 AI-Powered Insights**: Gemini AI generates personalized daily insights
+- **🤖 AI-Powered Insights**: OpenAI GPT-4o generates personalized daily insights
 - **🖨️ Thermal Printer Ready**: Optimized for 58mm thermal printers
 - **🔐 Unified Google Auth**: Single credentials file for all Google services
 
@@ -27,7 +28,22 @@ python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python setup.py
-python morning_brief.py
+python daily_brief.py
+```
+
+**Generated images are saved to the `outputs/` folder**
+
+## New: Google Tasks Integration! 🎯
+
+Your morning brief now includes a **Tasks section** with:
+- ✅ Interactive checkboxes for each task
+- 🔴🟡🟢 Priority indicators (high/medium/low)
+- 📝 Task titles and due dates
+- ✨ Perfect for marking tasks complete with a pen!
+
+**To enable Tasks:**
+```bash
+python3 enable_tasks_api.py  # Follow the setup guide
 ```
 
 ## Setup
