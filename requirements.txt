@@ -13,7 +13,7 @@ google-auth-httplib2>=0.1.0
 
 # Thermal Printer Support
 python-escpos>=3.0.0
-pyusb>=2.0.0
+pyusb>=1.0.0
 
 # Utilities
 python-dotenv>=1.0.0

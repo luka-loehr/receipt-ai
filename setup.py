@@ -14,17 +14,106 @@ from pathlib import Path
 def install_dependencies():
     """Install all required dependencies from requirements.txt"""
     print("📦 Installing dependencies from requirements.txt...")
-    try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+    
+    # Check if we're in a virtual environment
+    in_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if not in_venv:
+        # Check if virtual environment already exists
+        if os.path.exists("venv"):
+            print("🔍 Found existing virtual environment")
+            print("📦 Checking if dependencies are already installed...")
+            
+            # Try to use existing virtual environment
+            if os.name == 'nt':  # Windows
+                pip_path = os.path.join("venv", "Scripts", "pip")
+                python_path = os.path.join("venv", "Scripts", "python")
+            else:  # Linux/macOS
+                pip_path = os.path.join("venv", "bin", "pip")
+                python_path = os.path.join("venv", "bin", "python")
+            
+            # Check if key dependencies are installed
+            try:
+                result = subprocess.run([pip_path, "list"], capture_output=True, text=True, check=True)
+                if "openai" in result.stdout and "google-api-python-client" in result.stdout:
+                    print("✅ Dependencies already installed in existing virtual environment")
+                    
+                    # Update sys.executable and sys.path
+                    sys.executable = python_path
+                    venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+                    if os.path.exists(venv_site_packages):
+                        sys.path.insert(0, venv_site_packages)
+                    
+                    print("💡 Using existing virtual environment!")
+                    return True
+            except:
+                pass
+            
+            print("🔧 Using existing virtual environment for package installation...")
+        else:
+            print("🔧 Creating virtual environment for safe package installation...")
+            
+            # Check if venv module is available
+            try:
+                import venv
+            except ImportError:
+                print("❌ Virtual environment module not available")
+                print("   Please install python3-venv:")
+                print("   sudo apt update && sudo apt install python3-venv")
+                print("   Then run this setup script again.")
+                return False
+            
+            try:
+                # Create virtual environment
+                venv_path = "venv"
+                subprocess.run([sys.executable, "-m", "venv", venv_path], check=True)
+                print("✅ Virtual environment created successfully!")
+            except subprocess.CalledProcessError as e:
+                print(f"❌ Failed to create virtual environment: {e}")
+                return False
+        
+        # Install dependencies in virtual environment
+        if os.name == 'nt':  # Windows
+            pip_path = os.path.join("venv", "Scripts", "pip")
+            python_path = os.path.join("venv", "Scripts", "python")
+        else:  # Linux/macOS
+            pip_path = os.path.join("venv", "bin", "pip")
+            python_path = os.path.join("venv", "bin", "python")
+        
+        print("📦 Installing dependencies in virtual environment...")
+        subprocess.run([pip_path, "install", "-r", "requirements.txt"], check=True)
         print("✅ All dependencies installed successfully!")
+        
+        # Update the sys.executable to use the virtual environment
+        sys.executable = python_path
+        
+        # Update sys.path to include the virtual environment site-packages
+        venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+        if os.path.exists(venv_site_packages):
+            sys.path.insert(0, venv_site_packages)
+        
+        print("💡 Virtual environment activated for this session!")
+        print("   To activate manually in the future, run:")
+        if os.name == 'nt':  # Windows
+            print(f"   venv\\Scripts\\activate")
+        else:  # Linux/macOS
+            print(f"   source venv/bin/activate")
+        
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install dependencies: {e}")
-        print("   Please install manually: pip install -r requirements.txt")
-        return False
-    except FileNotFoundError:
-        print("❌ requirements.txt not found")
-        return False
+        
+    else:
+        # Already in virtual environment, install normally
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+            print("✅ All dependencies installed successfully!")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install dependencies: {e}")
+            print("   Please install manually: pip install -r requirements.txt")
+            return False
+        except FileNotFoundError:
+            print("❌ requirements.txt not found")
+            return False
 
 def print_header():
     """Print beautiful header"""
@@ -52,6 +141,13 @@ def setup_thermal_printer():
     """Set up thermal printer connection"""
     print("\n🖨️  Thermal Printer Setup")
     print("-" * 30)
+    
+    # Check if we already have a printer configuration
+    existing_config = os.getenv('THERMAL_PRINTER_TYPE')
+    if existing_config and existing_config != 'file_test':
+        print(f"🔍 Found existing printer configuration: {existing_config}")
+        print("✅ Using existing printer configuration")
+        return True
     
     print("📋 This will help you configure your thermal printer for ESC/POS printing.")
     print("   Your daily briefs will be automatically printed to the thermal printer.")
@@ -237,7 +333,22 @@ def install_thermal_printer_deps():
     try:
         import subprocess
         print("📦 Installing python-escpos...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "python-escpos", "pyusb"], check=True)
+        
+        # Check if we're in a virtual environment
+        in_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+        
+        if not in_venv and os.path.exists("venv"):
+            # Use virtual environment pip
+            if os.name == 'nt':  # Windows
+                pip_path = os.path.join("venv", "Scripts", "pip")
+            else:  # Linux/macOS
+                pip_path = os.path.join("venv", "bin", "pip")
+            
+            subprocess.run([pip_path, "install", "python-escpos", "pyusb"], check=True)
+        else:
+            # Use current environment
+            subprocess.run([sys.executable, "-m", "pip", "install", "python-escpos", "pyusb"], check=True)
+        
         print("✅ Thermal printer dependencies installed!")
         return True
     except Exception as e:
@@ -249,6 +360,20 @@ def setup_openweather():
     """Get OpenWeatherMap API key"""
     print("\n🌤️  OpenWeatherMap API Setup")
     print("-" * 30)
+    
+    # Check if API key already exists
+    existing_key = os.getenv('OPENWEATHER_API_KEY')
+    if existing_key and existing_key != 'your_openweather_api_key_here':
+        print("🔍 Found existing OpenWeatherMap API key")
+        print("✅ Using existing OpenWeatherMap API key")
+        return True
+    
+    print("📋 To get your OpenWeatherMap API key:")
+    print("   1. Go to: https://openweathermap.org/api")
+    print("   2. Sign up for a free account")
+    print("   3. Get your API key from your account dashboard")
+    print("   4. Free tier includes 1000 calls/day")
+    print()
     
     api_key = input("Enter your OpenWeatherMap API key (or press Enter to skip): ").strip()
     
@@ -266,6 +391,17 @@ def setup_openai():
     print("\n🤖 OpenAI API Setup")
     print("-" * 30)
     
+    # Check if API key already exists and is valid
+    existing_key = os.getenv('OPENAI_API_KEY')
+    if existing_key and existing_key != 'your_openai_api_key_here':
+        print("🔍 Found existing OpenAI API key")
+        test_result = test_openai_api(existing_key)
+        if test_result:
+            print("✅ Existing OpenAI API key is working!")
+            return True
+        else:
+            print("⚠️  Existing API key failed test, will prompt for new one")
+    
     print("📋 To get your OpenAI API key:")
     print("   1. Go to: https://platform.openai.com/api-keys")
     print("   2. Sign in to your OpenAI account (or create one)")
@@ -281,16 +417,6 @@ def setup_openai():
     print("   • Set usage limits at: https://platform.openai.com/usage")
     print()
     
-    # Offer to open browser
-    open_browser = input("Open OpenAI API keys page in browser? (y/n): ").lower().strip()
-    if open_browser == 'y':
-        try:
-            webbrowser.open('https://platform.openai.com/api-keys')
-            print("🌐 Browser opened!")
-        except Exception as e:
-            print(f"⚠️  Could not open browser: {e}")
-    
-    print()
     api_key = input("Enter your OpenAI API key (or press Enter to skip): ").strip()
     
     if api_key:
@@ -320,6 +446,12 @@ def setup_openai():
 def test_openai_api(api_key):
     """Test OpenAI API key"""
     try:
+        # Check if we need to reload modules from virtual environment
+        if os.path.exists("venv"):
+            venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+            if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+                sys.path.insert(0, venv_site_packages)
+        
         from openai import OpenAI
         
         client = OpenAI(api_key=api_key)
@@ -350,6 +482,17 @@ def setup_google_oauth():
     if not check_google_credentials():
         print("❌ Cannot proceed without google_credentials.json")
         return False
+    
+    # Check if we already have valid tokens
+    if os.path.exists('token_autogenerated/unified_google_token.json'):
+        print("🔍 Found existing Google OAuth tokens")
+        print("🧪 Testing existing tokens...")
+        
+        if test_calendar_api() and test_gmail_api() and test_tasks_api():
+            print("✅ Existing Google OAuth tokens are working!")
+            return True
+        else:
+            print("⚠️  Existing tokens failed test, will re-authorize")
     
     print("📋 This will:")
     print("   1. Open your browser for Google authorization")
@@ -409,6 +552,12 @@ def setup_google_oauth():
 def test_calendar_api():
     """Test Google Calendar API"""
     try:
+        # Check if we need to reload modules from virtual environment
+        if os.path.exists("venv"):
+            venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+            if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+                sys.path.insert(0, venv_site_packages)
+        
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
@@ -458,6 +607,12 @@ def test_calendar_api():
 def test_gmail_api():
     """Test Gmail API"""
     try:
+        # Check if we need to reload modules from virtual environment
+        if os.path.exists("venv"):
+            venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+            if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+                sys.path.insert(0, venv_site_packages)
+        
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
@@ -468,8 +623,9 @@ def test_gmail_api():
         creds = None
         if os.path.exists('token_autogenerated/unified_google_token.json'):
             creds = Credentials.from_authorized_user_file('token_autogenerated/unified_google_token.json', SCOPES)
-        elif os.path.exists('token_autogenerated/gmail_token.json'):
-            creds = Credentials.from_authorized_user_file('token_autogenerated/gmail_token.json', SCOPES)
+        else:
+            print("   ❌ No valid credentials found. Run OAuth setup first.")
+            return False
         
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
@@ -496,6 +652,12 @@ def test_gmail_api():
 def test_tasks_api():
     """Test Google Tasks API"""
     try:
+        # Check if we need to reload modules from virtual environment
+        if os.path.exists("venv"):
+            venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+            if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+                sys.path.insert(0, venv_site_packages)
+        
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
@@ -506,8 +668,9 @@ def test_tasks_api():
         creds = None
         if os.path.exists('token_autogenerated/unified_google_token.json'):
             creds = Credentials.from_authorized_user_file('token_autogenerated/unified_google_token.json', SCOPES)
-        elif os.path.exists('token_autogenerated/tasks_token.json'):
-            creds = Credentials.from_authorized_user_file('token_autogenerated/tasks_token.json', SCOPES)
+        else:
+            print("   ❌ No valid credentials found. Run OAuth setup first.")
+            return False
         
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
@@ -534,6 +697,12 @@ def test_tasks_api():
 def unified_google_oauth():
     """Single OAuth flow for all Google APIs"""
     try:
+        # Check if we need to reload modules from virtual environment
+        if os.path.exists("venv"):
+            venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+            if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+                sys.path.insert(0, venv_site_packages)
+        
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
         from google_auth_oauthlib.flow import InstalledAppFlow
@@ -547,8 +716,8 @@ def unified_google_oauth():
         
         # Get credentials
         creds = None
-        if os.path.exists('tokens_autogenerated/unified_google_token.json'):
-            creds = Credentials.from_authorized_user_file('tokens_autogenerated/unified_google_token.json', SCOPES)
+        if os.path.exists('token_autogenerated/unified_google_token.json'):
+            creds = Credentials.from_authorized_user_file('token_autogenerated/unified_google_token.json', SCOPES)
         
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
@@ -595,6 +764,64 @@ def update_env_file(key, value):
     # Write back to .env file
     with open(env_file, 'w') as f:
         f.writelines(lines)
+
+def show_configuration_status():
+    """Show current configuration status"""
+    print("📊 Configuration Status:")
+    
+    # Check OpenWeatherMap
+    weather_key = os.getenv('OPENWEATHER_API_KEY')
+    if weather_key and weather_key != 'your_openweather_api_key_here':
+        print("   🌤️  OpenWeatherMap: ✅ Configured")
+    else:
+        print("   🌤️  OpenWeatherMap: ❌ Not configured")
+    
+    # Check OpenAI
+    openai_key = os.getenv('OPENAI_API_KEY')
+    if openai_key and openai_key != 'your_openai_api_key_here':
+        print("   🤖 OpenAI: ✅ Configured")
+    else:
+        print("   🤖 OpenAI: ❌ Not configured")
+    
+    # Check Google OAuth
+    if os.path.exists('token_autogenerated/unified_google_token.json'):
+        print("   🔐 Google OAuth: ✅ Configured")
+    else:
+        print("   🔐 Google OAuth: ❌ Not configured")
+    
+    # Check Thermal Printer
+    printer_type = os.getenv('THERMAL_PRINTER_TYPE')
+    if printer_type and printer_type != 'file_test':
+        print(f"   🖨️  Thermal Printer: ✅ Configured ({printer_type})")
+    else:
+        print("   🖨️  Thermal Printer: ⚠️  Using file-based testing")
+
+def create_output_directories():
+    """Create all necessary output directories for the receipt printer"""
+    print("📁 Creating output directories...")
+    
+    # List of required directories
+    directories = [
+        'outputs',
+        'outputs/txt',
+        'outputs/png', 
+        'outputs/escpos',
+        'token_autogenerated'
+    ]
+    
+    created_count = 0
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            print(f"   ✅ Created: {directory}")
+            created_count += 1
+        else:
+            print(f"   🔍 Found: {directory}")
+    
+    if created_count > 0:
+        print(f"✅ Created {created_count} new directories")
+    else:
+        print("✅ All required directories already exist")
 
 def create_env_template():
     """Create .env file from template if it doesn't exist"""
@@ -648,6 +875,13 @@ def final_test():
     print("-" * 20)
     
     try:
+        # Check if we need to reload modules from virtual environment
+        if os.path.exists("venv"):
+            venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
+            if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
+                sys.path.insert(0, venv_site_packages)
+                print("🔄 Reloaded virtual environment modules")
+        
         # Test data services
         from src.data_services import DataManager
         
@@ -681,6 +915,15 @@ def main():
     # Create .env file if it doesn't exist
     create_env_template()
     
+    # Create output directories
+    create_output_directories()
+    print()
+    
+    # Show current configuration status
+    print("🔍 Checking current configuration...")
+    show_configuration_status()
+    print()
+    
     # Install dependencies
     install_dependencies()
     
@@ -702,6 +945,12 @@ def main():
         print("=" * 40)
         print("✅ Your Receipt Printer is ready to use!")
         print()
+        
+        # Show final configuration summary
+        print("📊 Final Configuration Summary:")
+        show_configuration_status()
+        print()
+        
         print("🚀 Next steps:")
         print("   1. Run: python daily_brief.py")
         print("   2. Enjoy your personalized German daily brief!")
