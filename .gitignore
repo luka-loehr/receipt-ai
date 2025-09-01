@@ -4,7 +4,7 @@ gmail_token.json
 calendar_token.json
 *.json
 
-# Generated images
+# Generated images and outputs
 outputs/
 *.png
 *.jpg

@@ -13,7 +13,8 @@ import platform
 
 # ============== CONFIGURATION ==============
 USER_NAME = "Luka"
-OUTPUT_FILE = "outputs/daily_brief.png"
+OUTPUT_FILE_PNG = "outputs/png/daily_brief.png"
+OUTPUT_FILE_TXT = "outputs/txt/daily_brief.txt"
 
 # Import real data services
 from data_services import DataManager, WeatherData, EmailData, CalendarEvent, TaskData
@@ -181,6 +182,47 @@ def generate_german_overview(emails, events):
         event_count = len(events)
         return f"Guten Morgen {USER_NAME}! Du hast {total_emails} neue E-Mails und {event_count} Termine."
 
+def generate_text_brief(brief_response, ai_brief):
+    """Generate a plain text version that matches exactly what's on the PNG"""
+    now = datetime.datetime.now()
+    date_str = now.strftime("%A, %d. %B %Y")
+    time_str = now.strftime("%H:%M")
+    
+    # Get tasks if available (same logic as PNG generation)
+    tasks_text = ""
+    if hasattr(data_manager, 'task_service'):
+        try:
+            tasks = data_manager.task_service.get_tasks()
+            if tasks:
+                tasks_text = "\n✅ AUFGABEN\n\n"
+                for i, task in enumerate(tasks[:5], 1):
+                    priority_symbol = "🔴" if task.priority == "high" else "🟡" if task.priority == "medium" else "🟢"
+                    # Use the same truncation logic as PNG (50 chars max)
+                    task_title = task.title
+                    if len(f"{priority_symbol} {task_title}") > 50:
+                        task_title = task_title[:47] + "..."
+                    tasks_text += f"☐ {priority_symbol} {task_title}\n"
+        except Exception as e:
+            print(f"⚠️  Error generating tasks for text: {e}")
+    
+    # Create text content that matches PNG exactly
+    text_content = f"""{brief_response.greeting}
+
+KI-Tagesbrief
+
+{date_str}
+
+{ai_brief}
+
+{tasks_text}
+Erstellt um {time_str}"""
+    
+    # Save text file
+    with open(OUTPUT_FILE_TXT, 'w', encoding='utf-8') as f:
+        f.write(text_content)
+    
+    print(f"📝 Text brief created: {OUTPUT_FILE_TXT}")
+
 def create_daily_brief():
     """Generate the simplified AI-powered daily briefing receipt"""
     # Fetch AI-generated comprehensive brief and greeting in one call
@@ -190,6 +232,9 @@ def create_daily_brief():
     # Cache the response for the greeting function
     data_manager._cached_brief_response = brief_response
     ai_brief = brief_response.brief
+    
+    # Also generate text version that matches PNG exactly
+    generate_text_brief(brief_response, ai_brief)
     
     # Start with smaller canvas at higher resolution
     canvas_height = 1000 * DPI_SCALE
@@ -258,8 +303,8 @@ def create_daily_brief():
                     
                     # Task text (with priority emoji)
                     task_text = f"{priority_symbol} {task.title}"
-                    if len(task_text) > 35:  # Truncate long task names
-                        task_text = task_text[:32] + "..."
+                    if len(task_text) > 50:  # Truncate long task names
+                        task_text = task_text[:47] + "..."
                     
                     # Draw task text
                     draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), task_text, 
@@ -306,10 +351,10 @@ def main():
     brief_img = create_daily_brief()
     
     # Save
-    brief_img.save(OUTPUT_FILE)
+    brief_img.save(OUTPUT_FILE_PNG)
     
     # Success message
-    print(f"✅ Daily brief created: {OUTPUT_FILE}")
+    print(f"✅ Daily brief created: {OUTPUT_FILE_PNG}")
     print(f"📐 Dimensions: {brief_img.width}x{brief_img.height}px")
     print(f"📄 Paper width: 58mm (384px)")
     print("\n☕ Perfect for your daily productivity ritual!")
@@ -319,18 +364,18 @@ def main():
         import subprocess
         import sys
         if sys.platform == "darwin":  # macOS
-            subprocess.run(["open", OUTPUT_FILE])
+            subprocess.run(["open", OUTPUT_FILE_PNG])
         elif sys.platform == "linux":
             # Try multiple Linux image viewers
             viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
             for viewer in viewers:
                 try:
-                    subprocess.run([viewer, OUTPUT_FILE], check=True)
+                    subprocess.run([viewer, OUTPUT_FILE_PNG], check=True)
                     break
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     continue
         elif sys.platform == "win32":  # Windows
-            subprocess.run(["start", OUTPUT_FILE], shell=True)
+            subprocess.run(["start", OUTPUT_FILE_PNG], shell=True)
     except:
         pass
 
