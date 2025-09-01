@@ -35,7 +35,7 @@ QUOTES = [
 DPI_SCALE = 2  # Render at 2x for better quality
 PAPER_WIDTH = 384 * DPI_SCALE  # pixels at 203 dpi * scale
 FINAL_WIDTH = 384  # Final output width
-MARGIN = 15 * DPI_SCALE
+MARGIN = 8 * DPI_SCALE  # Minimal margin for maximum text space
 BG_COLOR = "white"
 FG_COLOR = "black"
 GRAY_COLOR = "#666666"
@@ -168,23 +168,44 @@ def draw_centered_text(draw, y, text, font, color=FG_COLOR):
     draw.text((x, y), text, fill=color, font=font)
     return bbox[3] - bbox[1]
 
-def draw_wrapped_text(draw, x, y, text, font, max_width, color=FG_COLOR):
-    """Draw text with word wrapping"""
-    # Calculate approximate character width
-    test_bbox = draw.textbbox((0, 0), "M", font=font)
-    char_width = test_bbox[2] - test_bbox[0]
-    chars_per_line = max_width // char_width
+def draw_wrapped_text(draw, x, y, text, font, max_width, color=FG_COLOR, line_spacing_multiplier=1.4):
+    """Draw text with aggressive width utilization"""
+    words = text.split()
+    lines = []
+    current_line = ""
     
-    # Wrap text
-    lines = textwrap.wrap(text, width=chars_per_line)
+    for word in words:
+        # Test if adding this word would exceed width
+        test_line = current_line + (" " if current_line else "") + word
+        test_bbox = draw.textbbox((0, 0), test_line, font=font)
+        test_width = test_bbox[2] - test_bbox[0]
+        
+        if test_width <= max_width:
+            current_line = test_line
+        else:
+            # Line would be too long, start new line
+            if current_line:
+                lines.append(current_line)
+                current_line = word
+            else:
+                # Single word is too long, force it anyway
+                lines.append(word)
+                current_line = ""
+    
+    # Add the last line
+    if current_line:
+        lines.append(current_line)
     
     total_height = 0
-    for line in lines:
+    for i, line in enumerate(lines):
         draw.text((x, y), line, fill=color, font=font)
         bbox = draw.textbbox((0, 0), line, font=font)
         line_height = bbox[3] - bbox[1]
-        y += line_height + 2
-        total_height += line_height + 2
+        
+        # Apply line spacing multiplier for better readability
+        spacing = int(line_height * line_spacing_multiplier)
+        y += spacing
+        total_height += spacing
     
     return total_height
 
@@ -208,14 +229,9 @@ def draw_decorative_border(draw, y, height=3):
     return height + 2
 
 def get_greeting():
-    """Get time-appropriate greeting in German"""
-    hour = datetime.datetime.now().hour
-    if hour < 12:
-        return "Guten Morgen"
-    elif hour < 17:
-        return "Guten Tag"
-    else:
-        return "Guten Abend"
+    """Get AI-generated time-appropriate greeting in German"""
+    # This will be called after the brief is generated, so we can use the cached response
+    return data_manager._cached_brief_response.greeting
 
 def get_priority_symbol(priority):
     """Get visual indicator for priority"""
@@ -242,9 +258,13 @@ def generate_german_overview(emails, events):
 
 def create_morning_brief():
     """Generate the simplified AI-powered morning briefing receipt"""
-    # Fetch AI-generated comprehensive brief
-    print("🔄 Generating AI brief...")
-    ai_brief = data_manager.get_comprehensive_brief(USER_NAME)
+    # Fetch AI-generated comprehensive brief and greeting in one call
+    print("🔄 Generating AI brief and greeting...")
+    brief_response = data_manager.get_morning_brief(USER_NAME)
+    
+    # Cache the response for the greeting function
+    data_manager._cached_brief_response = brief_response
+    ai_brief = brief_response.brief
     
     # Start with smaller canvas at higher resolution
     canvas_height = 1000 * DPI_SCALE
@@ -264,7 +284,7 @@ def create_morning_brief():
     y += 15 * DPI_SCALE
     
     # Main greeting
-    greeting = f"{get_greeting()}, {USER_NAME}"
+    greeting = get_greeting()
     y += draw_centered_text(draw, y, greeting, font_title)
     y += 15 * DPI_SCALE
     
@@ -282,9 +302,9 @@ def create_morning_brief():
     y += draw_separator(draw, y, "solid", 2 * DPI_SCALE)
     y += 25 * DPI_SCALE
     
-    # AI-generated comprehensive overview
+    # AI-generated comprehensive overview with optimized spacing
     y += draw_wrapped_text(draw, MARGIN, y, ai_brief, font_normal, 
-                          PAPER_WIDTH - MARGIN * 2, FG_COLOR)
+                          PAPER_WIDTH - MARGIN * 2, FG_COLOR, line_spacing_multiplier=1.4)
     y += 25 * DPI_SCALE
     
     # Bottom decorative border

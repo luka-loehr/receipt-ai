@@ -42,20 +42,85 @@ def setup_openweather():
         print("⏭️  Skipped OpenWeatherMap setup")
         return False
 
-def setup_gemini():
-    """Get Google Gemini API key"""
-    print("\n🤖 Google Gemini API Setup")
+def setup_openai():
+    """Get OpenAI API key"""
+    print("\n🤖 OpenAI API Setup")
     print("-" * 30)
     
-    api_key = input("Enter your Google Gemini API key (or press Enter to skip): ").strip()
+    print("📋 To get your OpenAI API key:")
+    print("   1. Go to: https://platform.openai.com/api-keys")
+    print("   2. Sign in to your OpenAI account (or create one)")
+    print("   3. Click 'Create new secret key'")
+    print("   4. Give it a name (e.g., 'Receipt Printer')")
+    print("   5. Copy the key (starts with 'sk-')")
+    print("   6. ⚠️  Keep it secure - you won't see it again!")
+    print()
+    
+    print("💰 Pricing info:")
+    print("   • GPT-4o: ~$0.005 per 1K input tokens, ~$0.015 per 1K output tokens")
+    print("   • Morning brief: ~$0.01-0.02 per generation")
+    print("   • Set usage limits at: https://platform.openai.com/usage")
+    print()
+    
+    # Offer to open browser
+    open_browser = input("Open OpenAI API keys page in browser? (y/n): ").lower().strip()
+    if open_browser == 'y':
+        try:
+            webbrowser.open('https://platform.openai.com/api-keys')
+            print("🌐 Browser opened!")
+        except Exception as e:
+            print(f"⚠️  Could not open browser: {e}")
+    
+    print()
+    api_key = input("Enter your OpenAI API key (or press Enter to skip): ").strip()
     
     if api_key:
+        # Validate API key format
+        if not api_key.startswith('sk-'):
+            print("⚠️  Warning: OpenAI API keys usually start with 'sk-'")
+            confirm = input("Continue anyway? (y/n): ").lower().strip()
+            if confirm != 'y':
+                print("⏭️  Skipped OpenAI setup")
+                return False
+        
         # Update .env file
-        update_env_file('GEMINI_API_KEY', api_key)
-        print("✅ Gemini API key saved!")
-        return True
+        update_env_file('OPENAI_API_KEY', api_key)
+        print("✅ OpenAI API key saved!")
+        
+        # Test the API key
+        if test_openai_api(api_key):
+            print("✅ OpenAI API key is working!")
+            return True
+        else:
+            print("❌ OpenAI API key test failed")
+            return False
     else:
-        print("⏭️  Skipped Gemini setup")
+        print("⏭️  Skipped OpenAI setup")
+        return False
+
+def test_openai_api(api_key):
+    """Test OpenAI API key"""
+    try:
+        from openai import OpenAI
+        
+        client = OpenAI(api_key=api_key)
+        
+        # Test with a simple completion
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Say 'Hello, API test successful!' in German."}
+            ],
+            max_tokens=20
+        )
+        
+        result = response.choices[0].message.content
+        print(f"   🤖 API Response: {result}")
+        return True
+        
+    except Exception as e:
+        print(f"   ❌ OpenAI API error: {e}")
         return False
 
 def setup_google_oauth():
@@ -253,9 +318,14 @@ def create_env_template():
 GOOGLE_CREDENTIALS_FILE=google_credentials.json
 USER_NAME=Luka
 USER_TIMEZONE=Europe/Berlin
+WEATHER_LOCATION=Karlsruhe,DE
 MAX_EMAILS_TO_PROCESS=10
 EMAIL_PRIORITY_KEYWORDS=urgent,important,asap,deadline,meeting
 EMAIL_SPAM_FILTERS=newsletter,marketing,promotion,unsubscribe
+
+# API Keys (set these during setup)
+OPENAI_API_KEY=your_openai_api_key_here
+OPENWEATHER_API_KEY=your_openweather_api_key_here
 """
             with open('.env', 'w') as f:
                 f.write(basic_env)
@@ -272,17 +342,18 @@ def final_test():
         
         print("📊 Testing data services...")
         manager = DataManager()
-        weather, emails, events, insights = manager.get_all_data()
         
-        print(f"✅ Weather: {weather.temperature}, {weather.condition}")
-        print(f"✅ Emails: {len(emails)} processed")
-        print(f"✅ Events: {len(events)} today")
-        print(f"✅ AI Insights: {insights}")
+        # Test the new structured morning brief
+        brief_response = manager.get_morning_brief()
+        
+        print(f"✅ Greeting: {brief_response.greeting}")
+        print(f"✅ Brief: {brief_response.brief[:100]}...")
         
         return True
         
     except Exception as e:
         print(f"❌ Final test failed: {e}")
+        print("   This might be due to missing API keys or credentials")
         return False
 
 def main():
@@ -291,7 +362,7 @@ def main():
     
     print("🎯 This setup will configure your Receipt Printer for:")
     print("   • OpenWeatherMap API (weather data)")
-    print("   • Google Gemini API (AI insights)")
+    print("   • OpenAI GPT-4o API (AI insights & greetings)")
     print("   • Google OAuth (Gmail & Calendar)")
     print()
     
@@ -301,8 +372,8 @@ def main():
     # Setup OpenWeatherMap
     setup_openweather()
     
-    # Setup Gemini
-    setup_gemini()
+    # Setup OpenAI
+    setup_openai()
     
     # Setup Google OAuth
     setup_google_oauth()
