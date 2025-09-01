@@ -1,71 +1,103 @@
-# 🧾 Receipt Printer
+# Receipt Printer
 
-Personalized German morning briefs for thermal printers with real-time Google data.
-
-[![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat&logo=python&logoColor=white)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat)](LICENSE)
-[![Setup](https://img.shields.io/badge/Setup-One%20Script-orange?style=flat)](setup.py)
-
-Generate beautiful, personalized morning briefings with real-time data from Google Calendar, Gmail, and weather services. Perfect for your morning coffee ritual! ☕
+German daily briefings for thermal printers. Fetches real data from Google APIs, generates AI summaries, and prints to ESC/POS thermal printers.
 
 ## Features
 
-- **🇩🇪 German Localization**: Complete German interface and AI insights
-- **📅 Real Calendar Data**: Live Google Calendar integration  
-- **📧 Live Email Data**: Real-time Gmail processing with AI analysis
-- **✅ Task Management**: Google Tasks integration with priority indicators
-- **🌤️ Weather Integration**: Current conditions and forecasts
-- **🤖 AI-Powered Insights**: OpenAI GPT-4o generates personalized daily insights
-- **🖨️ Thermal Printer Ready**: Optimized for 58mm thermal printers
-- **🔐 Unified Google Auth**: Single credentials file for all Google services
+- **German AI briefs** with OpenAI GPT-4o
+- **Real Google data**: Gmail, Calendar, Tasks
+- **Weather integration** with OpenWeatherMap
+- **Thermal printer support** via ESC/POS protocol
+- **Multiple outputs**: PNG preview, text file, and direct printing
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/luka-loehr/receipt-printer.git
 cd receipt-printer
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python setup.py
-python daily_brief.py
+python3 setup.py  # Installs dependencies and configures everything
+python3 daily_brief.py
 ```
 
-**Generated files are saved to organized folders:**
-- `outputs/png/` - PNG images for thermal printing
-- `outputs/txt/` - Plain text files matching PNG content exactly
+## What You Need
 
-## New: Google Tasks Integration! 🎯
+1. **Google Cloud credentials** (`google_credentials.json` in `cloud_credentials/`)
+   - Enable Gmail API, Calendar API, Tasks API
+   - Download OAuth 2.0 credentials
 
-Your morning brief now includes a **Tasks section** with:
-- ✅ Interactive checkboxes for each task
-- 🔴🟡🟢 Priority indicators (high/medium/low)
-- 📝 Task titles and due dates
-- ✨ Perfect for marking tasks complete with a pen!
+2. **OpenAI API key** 
+   - Get from https://platform.openai.com/api-keys
 
-**To enable Tasks:**
+3. **OpenWeatherMap API key** (optional)
+   - Get from https://openweathermap.org/api
+
+4. **Thermal printer** (optional)
+   - USB, Network, or Serial ESC/POS printer
+   - Without printer: saves ESC/POS commands to file
+
+## How It Works
+
+1. **Setup** (`python3 setup.py`):
+   - Installs all dependencies
+   - Configures Google OAuth
+   - Sets up API keys
+   - Detects and configures thermal printer
+
+2. **Daily Brief** (`python3 daily_brief.py`):
+   - Fetches emails, calendar, tasks, weather
+   - Generates German AI summary
+   - Creates PNG preview (384px wide, 58mm paper)
+   - Saves text version
+   - Prints to thermal printer via ESC/POS
+
+## Files Generated
+
+- `outputs/png/daily_brief.png` - Visual preview
+- `outputs/txt/daily_brief.txt` - Plain text version  
+- `outputs/escpos/test_print.txt` - Raw ESC/POS commands
+
+## Thermal Printer Support
+
+Supports USB, Network, and Serial ESC/POS printers:
+- Auto-detects common thermal printer brands
+- Handles German characters correctly
+- 58mm paper width (384px at 203 DPI)
+- File-based testing without hardware
+
+## Configuration
+
+Edit `USER_NAME` in `src/daily_brief.py` and environment variables in `.env`:
+
 ```bash
-python3 enable_tasks_api.py  # Follow the setup guide
+USER_NAME=Your Name
+WEATHER_LOCATION=City,Country  
+USER_TIMEZONE=Europe/Berlin
+THERMAL_PRINTER_TYPE=usb_auto  # or network_auto, file_test
 ```
 
-## Setup
+## Project Structure
 
-The `setup.py` script automatically:
-- ✅ Configures API keys (OpenWeatherMap, Gemini)
-- ✅ Verifies your `google_credentials.json` file
-- ✅ Sets up Google OAuth in your browser
-- ✅ Generates Gmail and Calendar tokens
-- ✅ Tests everything works
+```
+receipt-printer/
+├── daily_brief.py         # Main entry point
+├── setup.py              # Installation & configuration script
+├── requirements.txt       # Python dependencies
+├── README.md             # This file
+├── src/                  # Core source code
+│   ├── daily_brief.py    # Daily brief generation logic
+│   ├── data_services.py  # Google APIs & weather integration
+│   ├── thermal_printer.py# ESC/POS printer interface
+│   └── printer_config.py # Printer configuration
+├── utils/                # Utility scripts
+│   └── escpos_preview.py # Preview ESC/POS files
+├── outputs/              # Generated files
+│   ├── png/             # PNG previews
+│   ├── txt/             # Text versions
+│   └── escpos/          # ESC/POS print files
+└── cloud_credentials/    # Google API credentials
+    └── google_credentials.json
+```
 
 ## License
 
-MIT License – Personal project
-
-## Support
-
-- Issues: https://github.com/luka-loehr/receipt-printer/issues
-- Questions: contact@lukaloehr.de
-
----
-
-Developed by [Luka Löhr](https://github.com/luka-loehr) for personalized morning productivity.
+MIT

@@ -7,7 +7,24 @@ One script to set up everything and get you running immediately!
 import os
 import json
 import webbrowser
+import subprocess
+import sys
 from pathlib import Path
+
+def install_dependencies():
+    """Install all required dependencies from requirements.txt"""
+    print("📦 Installing dependencies from requirements.txt...")
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+        print("✅ All dependencies installed successfully!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to install dependencies: {e}")
+        print("   Please install manually: pip install -r requirements.txt")
+        return False
+    except FileNotFoundError:
+        print("❌ requirements.txt not found")
+        return False
 
 def print_header():
     """Print beautiful header"""
@@ -29,6 +46,203 @@ def check_google_credentials():
     else:
         print("❌ google_credentials.json not found")
         print("   Please download it from Google Cloud Console and place it in cloud_credentials/ folder")
+        return False
+
+def setup_thermal_printer():
+    """Set up thermal printer connection"""
+    print("\n🖨️  Thermal Printer Setup")
+    print("-" * 30)
+    
+    print("📋 This will help you configure your thermal printer for ESC/POS printing.")
+    print("   Your daily briefs will be automatically printed to the thermal printer.")
+    print()
+    
+    # Check if thermal printer dependencies are available
+    try:
+        import escpos
+        print("✅ ESC/POS library available")
+    except ImportError:
+        print("❌ ESC/POS library not available")
+        print("   Installing thermal printer dependencies...")
+        install_thermal_printer_deps()
+        return False
+    
+    # Try to detect USB printers
+    print("\n🔍 Detecting USB thermal printers...")
+    usb_printers = detect_usb_printers()
+    
+    if usb_printers:
+        print(f"✅ Found {len(usb_printers)} USB printer(s):")
+        for i, printer in enumerate(usb_printers):
+            print(f"   {i+1}. {printer['manufacturer']} {printer['product']}")
+            print(f"      Vendor: {hex(printer['vendor_id'])}, Product: {hex(printer['product_id'])}")
+        
+        choice = input(f"\nSelect printer (1-{len(usb_printers)}) or press Enter to skip: ").strip()
+        
+        if choice.isdigit() and 1 <= int(choice) <= len(usb_printers):
+            selected = usb_printers[int(choice) - 1]
+            config = create_printer_config_from_detected(selected)
+            
+            print(f"\n✅ Selected: {selected['manufacturer']} {selected['product']}")
+            
+            # Test the connection
+            from src.thermal_printer import ThermalPrinter
+            printer = ThermalPrinter(config)
+            
+            if printer.is_connected():
+                print("✅ Printer connected successfully!")
+                test = input("Run test print? (y/n): ").lower().strip()
+                if test == 'y':
+                    printer.test_print()
+                
+                # Save configuration
+                save_printer_config('usb_auto', config)
+                printer.disconnect()
+                return True
+            else:
+                print("❌ Could not connect to printer")
+    
+    # Network printer setup
+    print("\n🌐 Network Printer Setup")
+    setup_network = input("Setup network printer? (y/n): ").lower().strip()
+    
+    if setup_network == 'y':
+        ip = input("Enter printer IP address: ").strip()
+        port = input("Enter port (default 9100): ").strip() or "9100"
+        
+        from src.thermal_printer import PrinterConfig
+        config = PrinterConfig(
+            connection_type='network',
+            device_id=ip,
+            host=ip,
+            port=int(port)
+        )
+        
+        print(f"\n✅ Network printer config created:")
+        print(f"   IP: {ip}")
+        print(f"   Port: {port}")
+        
+        # Test connection
+        printer = ThermalPrinter(config)
+        
+        if printer.is_connected():
+            print("✅ Network printer connected successfully!")
+            test = input("Run test print? (y/n): ").lower().strip()
+            if test == 'y':
+                printer.test_print()
+            
+            # Save configuration
+            save_printer_config('network_auto', config)
+            printer.disconnect()
+            return True
+        else:
+            print("❌ Could not connect to network printer")
+    
+    # File-based printer (for testing)
+    print("\n📁 File-based Printer (for testing)")
+    setup_file = input("Setup file-based printer for testing? (y/n): ").lower().strip()
+    
+    if setup_file == 'y':
+        from src.thermal_printer import PrinterConfig
+        config = PrinterConfig(
+            connection_type='file',
+            device_id='outputs/escpos/daily_brief.txt'
+        )
+        
+        # Create output directory
+        os.makedirs('outputs/escpos', exist_ok=True)
+        
+        print("✅ File-based printer configured for testing")
+        print("   ESC/POS commands will be saved to: outputs/escpos/daily_brief.txt")
+        
+        # Save configuration
+        save_printer_config('file_test', config)
+        return True
+    
+    print("⏭️  Skipped thermal printer setup")
+    return False
+
+def detect_usb_printers():
+    """Detect USB thermal printers on the system"""
+    try:
+        import usb.core
+        import usb.util
+        
+        # Common thermal printer vendor IDs
+        thermal_vendors = [
+            0x0483,  # Generic thermal
+            0x04b8,  # Epson
+            0x0419,  # Citizen
+            0x0525,  # Star
+            0x0483,  # Bixolon
+        ]
+        
+        detected_printers = []
+        
+        for vendor_id in thermal_vendors:
+            try:
+                devices = usb.core.find(find_all=True, idVendor=vendor_id)
+                for device in devices:
+                    detected_printers.append({
+                        'vendor_id': device.idVendor,
+                        'product_id': device.idProduct,
+                        'manufacturer': usb.util.get_string(device, device.iManufacturer),
+                        'product': usb.util.get_string(device, device.iProduct),
+                        'in_ep': None,
+                        'out_ep': None
+                    })
+                    
+                    # Try to find endpoints
+                    for cfg in device:
+                        for intf in cfg:
+                            for ep in intf:
+                                if ep.bEndpointAddress & 0x80:  # IN endpoint
+                                    detected_printers[-1]['in_ep'] = ep.bEndpointAddress
+                                else:  # OUT endpoint
+                                    detected_printers[-1]['out_ep'] = ep.bEndpointAddress
+                    
+            except Exception as e:
+                print(f"⚠️  Error detecting vendor {hex(vendor_id)}: {e}")
+                continue
+        
+        return detected_printers
+        
+    except ImportError:
+        print("⚠️  pyusb not installed. Install with: pip install pyusb")
+        return []
+    except Exception as e:
+        print(f"❌ USB detection error: {e}")
+        return []
+
+def create_printer_config_from_detected(printer_info):
+    """Create a PrinterConfig from detected printer info"""
+    from thermal_printer import PrinterConfig
+    return PrinterConfig(
+        connection_type='usb',
+        device_id=f"USB_{hex(printer_info['vendor_id'])}_{hex(printer_info['product_id'])}",
+        vendor_id=printer_info['vendor_id'],
+        product_id=printer_info['product_id'],
+        in_ep=printer_info['in_ep'],
+        out_ep=printer_info['out_ep']
+    )
+
+def save_printer_config(name, config):
+    """Save printer configuration to environment"""
+    # Set environment variable for printer type
+    update_env_file('THERMAL_PRINTER_TYPE', name)
+    print(f"✅ Printer configuration saved as: {name}")
+
+def install_thermal_printer_deps():
+    """Install thermal printer dependencies"""
+    try:
+        import subprocess
+        print("📦 Installing python-escpos...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "python-escpos", "pyusb"], check=True)
+        print("✅ Thermal printer dependencies installed!")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to install dependencies: {e}")
+        print("   Please install manually: pip install python-escpos pyusb")
         return False
 
 def setup_openweather():
@@ -417,6 +631,9 @@ MAX_EMAILS_TO_PROCESS=10
 EMAIL_PRIORITY_KEYWORDS=urgent,important,asap,deadline,meeting
 EMAIL_SPAM_FILTERS=newsletter,marketing,promotion,unsubscribe
 
+# Thermal Printer Configuration
+THERMAL_PRINTER_TYPE=file_test
+
 # API Keys (set these during setup)
 OPENAI_API_KEY=your_openai_api_key_here
 OPENWEATHER_API_KEY=your_openweather_api_key_here
@@ -432,7 +649,7 @@ def final_test():
     
     try:
         # Test data services
-        from data_services import DataManager
+        from src.data_services import DataManager
         
         print("📊 Testing data services...")
         manager = DataManager()
@@ -458,10 +675,14 @@ def main():
     print("   • OpenWeatherMap API (weather data)")
     print("   • OpenAI GPT-4o API (AI insights & greetings)")
     print("   • Google OAuth (Gmail & Calendar)")
+    print("   • Thermal Printer (ESC/POS printing)")
     print()
     
     # Create .env file if it doesn't exist
     create_env_template()
+    
+    # Install dependencies
+    install_dependencies()
     
     # Setup OpenWeatherMap
     setup_openweather()
@@ -472,6 +693,9 @@ def main():
     # Setup Google OAuth
     setup_google_oauth()
     
+    # Setup Thermal Printer
+    setup_thermal_printer()
+    
     # Final test
     if final_test():
         print("\n🎉 SETUP COMPLETED SUCCESSFULLY!")
@@ -481,6 +705,7 @@ def main():
         print("🚀 Next steps:")
         print("   1. Run: python daily_brief.py")
         print("   2. Enjoy your personalized German daily brief!")
+        print("   3. Your brief will be printed to the thermal printer automatically!")
         print()
         print("📚 Need help? Check README.md for usage instructions")
     else:
