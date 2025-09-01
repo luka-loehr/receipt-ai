@@ -31,7 +31,9 @@ python setup.py
 python daily_brief.py
 ```
 
-**Generated images are saved to the `outputs/` folder**
+**Generated files are saved to organized folders:**
+- `outputs/png/` - PNG images for thermal printing
+- `outputs/txt/` - Plain text files matching PNG content exactly
 
 ## New: Google Tasks Integration! 🎯
 
