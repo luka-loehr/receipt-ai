@@ -59,7 +59,7 @@ class ThermalPrinter:
             else:
                 raise ValueError(f"Unsupported connection type: {self.config.connection_type}")
             
-            print(f"✅ Connected to {self.config.connection_type} printer: {self.config.device_id}")
+            print(f"✅ Connected to {self.config.connection_type} printer")
             
         except ESCPOSError as e:
             print(f"❌ Printer connection failed: {e}")
@@ -72,7 +72,7 @@ class ThermalPrinter:
         """Check if printer is connected"""
         return self.printer is not None
     
-    def print_daily_brief(self, greeting: str, brief: str, tasks: List[str] = None):
+    def print_daily_brief(self, greeting: str, brief: str, tasks: List[str] = None, shopping_list: List[str] = None):
         """Print daily brief in German using ESC/POS commands"""
         if not self.is_connected():
             print("❌ Printer not connected")
@@ -110,12 +110,25 @@ class ThermalPrinter:
                 self.printer.text("✅ AUFGABEN\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
-                for i, task in enumerate(tasks[:5], 1):  # Limit to 5 tasks
+                for i, task in enumerate(tasks, 1):
                     # Tasks are now pre-processed strings, not TaskData objects
                     # No additional truncation needed here
                     task_title = str(task)
-                    print(f"🖨️  DEBUG: Printing task {i}: \"{task_title}\" ({len(task_title)} chars)")
                     self.printer.text(f"□ {task_title}\n")
+                
+                self.printer.text("\n")
+            
+            # Shopping list section
+            if shopping_list:
+                self.printer.text("-" * 32 + "\n")
+                self.printer.set(align='center', font='a', width=1, height=1)
+                self.printer.text("🛒 EINKAUFSLISTE\n\n")
+                
+                self.printer.set(align='left', font='a', width=1, height=1)
+                for i, item in enumerate(shopping_list, 1):
+                    # Items are pre-processed strings, no additional truncation needed
+                    item_title = str(item)
+                    self.printer.text(f"□ {item_title}\n")
                 
                 self.printer.text("\n")
             
@@ -131,7 +144,6 @@ class ThermalPrinter:
             # Cut paper
             self.printer.cut()
             
-            print("✅ Daily brief printed successfully!")
             return True
             
         except ESCPOSError as e:

@@ -79,10 +79,9 @@ def print_to_thermal_printer(greeting, brief, tasks=None):
             # Convert tasks to list of strings if available
             task_list = []
             if tasks:
-                print(f"🔍 DEBUG: Processing {len(tasks)} tasks for thermal printer:")
-                for i, task in enumerate(tasks[:5]):  # Limit to 5 tasks
+                print(f"📋 Printing {len(tasks)} tasks...")
+                for i, task in enumerate(tasks):
                     task_title = task.title if hasattr(task, 'title') else str(task)
-                    print(f"  {i+1}. Original: \"{task_title}\" ({len(task_title)} chars)")
                     
                     # Apply the EXACT same logic as PNG/TXT preview
                     if len(task_title) > 70:
@@ -96,15 +95,37 @@ def print_to_thermal_printer(greeting, brief, tasks=None):
                             else:
                                 break
                         final_title = truncated_title + "..." if truncated_title else task_title[:67] + "..."
-                        print(f"      Truncated: \"{final_title}\" ({len(final_title)} chars)")
                     else:
                         final_title = task_title
-                        print(f"      No truncation needed: \"{final_title}\" ({len(final_title)} chars)")
                     
                     task_list.append(final_title)
             
+            # Convert shopping list to list of strings if available
+            shopping_list = []
+            if hasattr(data_manager, 'shopping_list') and data_manager.shopping_list:
+                print(f"🛒 Printing {len(data_manager.shopping_list)} shopping items...")
+                for i, item in enumerate(data_manager.shopping_list):
+                    item_title = item.title if hasattr(item, 'title') else str(item)
+                    
+                    # Apply the EXACT same logic as tasks
+                    if len(item_title) > 70:
+                        # Find the last complete word that fits within 70 chars
+                        max_chars = 67  # Leave room for "..."
+                        words = item_title.split()
+                        truncated_title = ""
+                        for word in words:
+                            if len(truncated_title + " " + word) <= max_chars:
+                                truncated_title += (" " if truncated_title else "") + word
+                            else:
+                                break
+                        final_title = truncated_title + "..." if truncated_title else item_title[:67] + "..."
+                    else:
+                        final_title = item_title
+                    
+                    shopping_list.append(final_title)
+            
             # Print the daily brief
-            success = printer.print_daily_brief(greeting, brief, task_list)
+            success = printer.print_daily_brief(greeting, brief, task_list, shopping_list)
             
             if success:
                 print("✅ Daily brief printed successfully!")
@@ -280,7 +301,7 @@ def generate_text_brief(brief_response, ai_brief):
             tasks = data_manager.task_service.get_tasks()
             if tasks:
                 tasks_text = "\n✅ AUFGABEN\n\n"
-                for i, task in enumerate(tasks[:5], 1):
+                for i, task in enumerate(tasks, 1):
                     # Use the same truncation logic as PNG (70 chars max) with smart word handling
                     task_title = task.title
                     if len(task_title) > 70:
@@ -298,6 +319,29 @@ def generate_text_brief(brief_response, ai_brief):
         except Exception as e:
             print(f"⚠️  Error generating tasks for text: {e}")
     
+    # Get shopping list if available
+    shopping_text = ""
+    if hasattr(data_manager, 'shopping_list') and data_manager.shopping_list:
+        try:
+            shopping_text = "\n🛒 EINKAUFSLISTE\n\n"
+            for i, item in enumerate(data_manager.shopping_list, 1):
+                # Use the same truncation logic as tasks
+                item_title = item.title
+                if len(item_title) > 70:
+                    # Find the last complete word that fits within 70 chars
+                    max_chars = 67  # Leave room for "..."
+                    words = item.title.split()
+                    truncated_title = ""
+                    for word in words:
+                        if len(truncated_title + " " + word) <= max_chars:
+                            truncated_title += (" " if truncated_title else "") + word
+                        else:
+                            break
+                    item_title = truncated_title + "..." if truncated_title else item.title[:67] + "..."
+                shopping_text += f"{item_title}\n"
+        except Exception as e:
+            print(f"⚠️  Error generating shopping list for text: {e}")
+    
     # Create text content that matches PNG exactly
     text_content = f"""{brief_response.greeting}
 
@@ -307,19 +351,18 @@ KI-Tagesbrief
 
 {ai_brief}
 
-{tasks_text}
+{tasks_text}{shopping_text}
 Erstellt um {time_str}"""
     
     # Save text file
     with open(OUTPUT_FILE_TXT, 'w', encoding='utf-8') as f:
         f.write(text_content)
     
-    print(f"📝 Text brief created: {OUTPUT_FILE_TXT}")
+
 
 def create_daily_brief():
     """Generate the simplified AI-powered daily briefing receipt"""
     # Fetch AI-generated comprehensive brief and greeting in one call
-    print("🔄 Generating AI brief and greeting...")
     brief_response = data_manager.get_daily_brief(USER_NAME)
     
     # Cache the response for the greeting function
@@ -387,7 +430,7 @@ def create_daily_brief():
                 y += 15 * DPI_SCALE
                 
                 # Draw tasks with checkboxes
-                for i, task in enumerate(tasks[:5]):  # Limit to 5 tasks for space
+                for i, task in enumerate(tasks):
                     # Checkbox (empty square)
                     checkbox_x = MARGIN + 10 * DPI_SCALE
                     checkbox_size = 12 * DPI_SCALE
@@ -421,6 +464,53 @@ def create_daily_brief():
                 y += 15 * DPI_SCALE
         except Exception as e:
             print(f"⚠️  Error displaying tasks: {e}")
+    
+    # Shopping List Section
+    if hasattr(data_manager, 'shopping_list') and data_manager.shopping_list:
+        try:
+            # Section header
+            y += draw_separator(draw, y, "dashed", 1 * DPI_SCALE)
+            y += 15 * DPI_SCALE
+            
+            # "Einkaufsliste" title
+            y += draw_centered_text(draw, y, "🛒 EINKAUFSLISTE", font_small, GRAY_COLOR)
+            y += 15 * DPI_SCALE
+            
+            # Draw shopping list items with checkboxes
+            for i, item in enumerate(data_manager.shopping_list):
+                # Checkbox (empty square)
+                checkbox_x = MARGIN + 10 * DPI_SCALE
+                checkbox_size = 12 * DPI_SCALE
+                draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
+                             outline=FG_COLOR, width=1)
+                
+                # Item text (no priority indicator)
+                item_text = item.title
+                if len(item_text) > 70:  # Truncate long item names with smart word handling
+                    # Find the last complete word that fits within 70 chars
+                    max_chars = 67  # Leave room for "..."
+                    words = item.title.split()
+                    truncated_title = ""
+                    for word in words:
+                        if len(truncated_title + " " + word) <= max_chars:
+                            truncated_title += (" " if truncated_title else "") + word
+                        else:
+                            break
+                    item_text = truncated_title + "..." if truncated_title else item.title[:67] + "..."
+                
+                # Draw item text
+                draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), item_text, 
+                         fill=FG_COLOR, font=font_tiny)
+                
+                y += checkbox_size + 8 * DPI_SCALE
+                
+                # Add small spacing between items
+                if i < len(data_manager.shopping_list) - 1:
+                    y += 5 * DPI_SCALE
+            
+            y += 15 * DPI_SCALE
+        except Exception as e:
+            print(f"⚠️  Error displaying shopping list: {e}")
     
     # Bottom decorative border
     y += draw_decorative_border(draw, y)
@@ -456,20 +546,16 @@ def main():
     brief_img.save(OUTPUT_FILE_PNG)
     
     # Success message
-    print(f"✅ Daily brief created: {OUTPUT_FILE_PNG}")
-    print(f"📐 Dimensions: {brief_img.width}x{brief_img.height}px")
-    print(f"📄 Paper width: 58mm (384px)")
+    print(f"✅ Daily brief created")
     
     # Print to thermal printer
     print("\n🖨️  Printing to thermal printer...")
     greeting = brief_response.greeting
     brief = brief_response.brief
     
-    # Debug: Show what tasks are being passed
+    # Show what tasks are being sent to printer
     if tasks:
-        print(f"📋 Tasks being sent to printer ({len(tasks)} total):")
-        for i, task in enumerate(tasks[:5], 1):
-            print(f"   {i}. \"{task.title}\" ({len(task.title)} chars)")
+        print(f"📋 Sending {len(tasks)} tasks to printer...")
     
     print_to_thermal_printer(greeting, brief, tasks)
     
