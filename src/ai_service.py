@@ -34,7 +34,6 @@ class EnhancedAIService:
         if not self.mock_mode and self.api_key:
             try:
                 self.client = OpenAI(api_key=self.api_key)
-                print(f"✅ Enhanced AI service initialized successfully with model {config.ai_model}")
             except Exception as e:
                 print(f"⚠️  Error initializing OpenAI client: {e}. Using mock mode.")
                 self.mock_mode = True

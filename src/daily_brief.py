@@ -18,7 +18,6 @@ from .data_manager import ModularDataManager, get_data_manager
 
 # Initialize with configuration
 config = get_config()
-data_manager = get_data_manager()
 
 # ============================================
 
@@ -72,15 +71,6 @@ def print_to_thermal_printer(receipt_content, printable_content):
         printer = ThermalPrinter(config)
         
         if printer.is_connected():
-            print("🖨️  Printing to thermal printer...")
-            
-            # Use the pre-processed printable content from AI
-            if printable_content.printable_tasks:
-                print(f"📋 Printing {len(printable_content.printable_tasks)} tasks...")
-            
-            if printable_content.printable_shopping:
-                print(f"🛒 Printing {len(printable_content.printable_shopping)} shopping items...")
-            
             # Print the daily brief using AI-generated content
             success = printer.print_daily_brief(receipt_content, printable_content)
             
@@ -109,12 +99,15 @@ def load_font(size=16, bold=False, mono=False):
     # Scale font size for higher DPI
     size = size * DPI_SCALE
     
-    # Try to find a system font that supports German characters
+    # Try to find a system font that supports international characters including Chinese
     font_paths = []
     
-    # Common system fonts that support international characters
+    # Common system fonts that support international characters including Chinese
     if os.name == 'nt':  # Windows
         font_paths = [
+            "C:\\Windows\\Fonts\\msyh.ttc",  # Microsoft YaHei (Chinese)
+            "C:\\Windows\\Fonts\\simsun.ttc",  # SimSun (Chinese)
+            "C:\\Windows\\Fonts\\simhei.ttf",  # SimHei (Chinese)
             "C:\\Windows\\Fonts\\arial.ttf",
             "C:\\Windows\\Fonts\\calibri.ttf",
             "C:\\Windows\\Fonts\\segoeui.ttf",
@@ -123,16 +116,20 @@ def load_font(size=16, bold=False, mono=False):
     elif os.name == 'posix':  # macOS and Linux
         if platform.system() == 'Darwin':  # macOS
             font_paths = [
+                "/System/Library/Fonts/PingFang.ttc",  # Chinese font
+                "/System/Library/Fonts/STHeiti Light.ttc",  # Chinese font
                 "/System/Library/Fonts/Helvetica.ttc",
                 "/System/Library/Fonts/Arial.ttf",
                 "/Library/Fonts/Arial.ttf"
             ]
         else:  # Linux
             font_paths = [
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",  # Chinese font
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Medium.ttc",  # Chinese font
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                 "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
-                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"
+                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf"
             ]
     
     # Try to load a system font
@@ -245,19 +242,13 @@ def get_priority_symbol(priority):
 
 def generate_german_overview(emails, events):
     """Backward-compat wrapper kept for safety; actual overview is generated via AIService in DataManager."""
-    try:
-        # Use DataManager's AI service to generate the overview when available
-        # We can't import the manager globally here due to ordering; use the existing instance
-        return data_manager.ai_service.generate_german_overview(emails, events, user_name=config.user_name)
-    except Exception as e:
-        print(f"⚠️  Overview generation error: {e}")
-        # Minimal fallback
-        total_emails = len(emails)
-        event_count = len(events)
-        greeting = get_greeting()
-        return f"{greeting} Du hast {total_emails} neue E-Mails und {event_count} Termine."
+    # Minimal fallback - this function is not used in the current flow
+    total_emails = len(emails)
+    event_count = len(events)
+    greeting = get_greeting()
+    return f"{greeting} Du hast {total_emails} neue E-Mails und {event_count} Termine."
 
-def generate_text_brief(brief_response, ai_brief):
+def generate_text_brief(brief_response, ai_brief, data_manager=None):
     """Generate a plain text version that matches exactly what's on the PNG"""
     import locale
     
@@ -316,10 +307,10 @@ def generate_text_brief(brief_response, ai_brief):
     
     # Get shopping list if available
     shopping_text = ""
-    if hasattr(data_manager, 'shopping_list') and data_manager.shopping_list:
+    if data_manager and hasattr(data_manager, 'last_shopping_list') and data_manager.last_shopping_list:
         try:
             shopping_text = "\n🛒 EINKAUFSLISTE\n\n"
-            for i, item in enumerate(data_manager.shopping_list, 1):
+            for i, item in enumerate(data_manager.last_shopping_list, 1):
                 # Use the same truncation logic as tasks
                 item_title = item.title
                 if len(item_title) > 70:
@@ -355,24 +346,23 @@ def generate_text_brief(brief_response, ai_brief):
     
 
 
-def create_daily_brief():
+def create_daily_brief(data_manager):
     """Generate the AI-powered daily briefing receipt using modular system"""
-    # Get fresh data manager with current language settings
-    current_config = get_config()
-    current_data_manager = ModularDataManager(current_config)
+    # Use provided data manager
     
-    # Generate complete AI-powered receipt content
-    receipt_content = current_data_manager.generate_complete_receipt()
+    # Generate complete AI-powered receipt content and get raw data
+    receipt_content, raw_data = data_manager.generate_complete_receipt()
+    weather, emails, events, raw_tasks, raw_shopping = raw_data
     
     # Format for printing 
-    printable_content = current_data_manager.format_for_printing(
+    printable_content = data_manager.format_for_printing(
         receipt_content,
-        tasks=[], # Tasks will be handled by the receipt content
-        shopping_items=[]  # Shopping items will be handled by the receipt content
+        tasks=raw_tasks,  # Pass actual task data
+        shopping_items=raw_shopping  # Pass actual shopping data
     )
     
     # Also generate text version that matches PNG exactly
-    generate_text_brief(receipt_content, receipt_content.summary.brief)
+    generate_text_brief(receipt_content, receipt_content.summary.brief, data_manager)
     
     # Start with smaller canvas at higher resolution
     canvas_height = 1000 * DPI_SCALE
@@ -417,8 +407,7 @@ def create_daily_brief():
     original_tasks = []  # Store original untruncated tasks
     if receipt_content.task_section and printable_content.printable_tasks:
         try:
-            # Get raw task data for thermal printer
-            _, _, _, raw_tasks, _ = data_manager.fetch_all_data()
+            # Use the already fetched raw task data
             original_tasks = raw_tasks
             tasks = printable_content.printable_tasks
             
@@ -518,40 +507,37 @@ def create_daily_brief():
         new_size = (FINAL_WIDTH, int(y / DPI_SCALE))
         img = img.resize(new_size, Image.Resampling.LANCZOS)
     
-    return img, receipt_content, original_tasks
+    return img, receipt_content, original_tasks, raw_data
 
 def main():
     """Generate and save the daily briefing, then print to thermal printer"""
     print("📅  Generating your daily briefing...")
     
-    # Create briefing (now returns image, receipt_content, and tasks)
-    brief_img, receipt_content, tasks = create_daily_brief()
+    # Create single data manager instance
+    current_config = get_config()
+    print(f"✅ Language: {current_config.get_language_code()}")
+    print()
+    data_manager = ModularDataManager(current_config)
+    
+    # Create briefing (now returns image, receipt_content, tasks, and raw_data)
+    brief_img, receipt_content, tasks, raw_data = create_daily_brief(data_manager)
     
     # Save PNG
     brief_img.save(config.output_png_file)
     
-    # Success message
-    print(f"✅ Daily brief created")
-    
     # Print to thermal printer
     print("\n🖨️  Printing to thermal printer...")
     
-    # Get printable content for thermal printer
-    current_config = get_config()
-    current_data_manager = ModularDataManager(current_config)
-    printable_content = current_data_manager.format_for_printing(
+    # Use the cached raw data instead of fetching again
+    weather, emails, events, raw_tasks, raw_shopping = raw_data
+    
+    printable_content = data_manager.format_for_printing(
         receipt_content,
-        tasks=[], # Tasks will be handled by the receipt content
-        shopping_items=[]  # Shopping items will be handled by the receipt content
+        tasks=raw_tasks,  # Pass actual task data
+        shopping_items=raw_shopping  # Pass actual shopping data
     )
     
-    # Show what tasks are being sent to printer
-    if tasks:
-        print(f"📋 Sending {len(tasks)} tasks to printer...")
-    
     print_to_thermal_printer(receipt_content, printable_content)
-    
-    print("\n☕ Perfect for your daily productivity ritual!")
     
     # Auto-open image
     try:

@@ -627,7 +627,6 @@ class TaskService:
             tasks = tasks_result.get('items', [])
             task_data = []
             
-            print(f"   ✅ Found {len(tasks)} tasks")
             
             # Process all tasks first
             for task in tasks:
