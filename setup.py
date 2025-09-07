@@ -116,11 +116,9 @@ def install_dependencies():
             return False
 
 def print_header():
-    """Print beautiful header"""
-    print("🚀" + "="*50 + "🚀")
-    print("    RECEIPT PRINTER - COMPLETE SETUP")
-    print("🚀" + "="*50 + "🚀")
-    print()
+    """Compact header"""
+    print("RECEIPT PRINTER - SETUP")
+    print("========================\n")
 
 def check_google_credentials():
     """Check if google_credentials.json exists"""
@@ -390,91 +388,35 @@ def install_thermal_printer_deps():
         return False
 
 def setup_openweather():
-    """Get OpenWeatherMap API key"""
-    print("\n🌤️  OpenWeatherMap API Setup")
-    print("-" * 30)
-    
-    # Check if API key already exists
+    """Prompt for OpenWeather API key (minimal)."""
     existing_key = os.getenv('OPENWEATHER_API_KEY')
     if existing_key and existing_key != 'your_openweather_api_key_here':
-        print("🔍 Found existing OpenWeatherMap API key")
-        print("✅ Using existing OpenWeatherMap API key")
+        print("OpenWeather: configured")
         return True
-    
-    print("📋 To get your OpenWeatherMap API key:")
-    print("   1. Go to: https://openweathermap.org/api")
-    print("   2. Sign up for a free account")
-    print("   3. Get your API key from your account dashboard")
-    print("   4. Free tier includes 1000 calls/day")
-    print()
-    
-    api_key = input("Enter your OpenWeatherMap API key (or press Enter to skip): ").strip()
-    
+    api_key = input("OpenWeather API key (Enter to skip): ").strip()
     if api_key:
-        # Update .env file
         update_env_file('OPENWEATHER_API_KEY', api_key)
-        print("✅ OpenWeatherMap API key saved!")
+        print("OpenWeather: saved")
         return True
-    else:
-        print("⏭️  Skipped OpenWeatherMap setup")
-        return False
+    print("OpenWeather: skipped")
+    return False
 
 def setup_openai():
-    """Get OpenAI API key"""
-    print("\n🤖 OpenAI API Setup")
-    print("-" * 30)
-    
-    # Check if API key already exists and is valid
+    """Prompt for OpenAI API key (minimal) and save; quick test if provided."""
     existing_key = os.getenv('OPENAI_API_KEY')
     if existing_key and existing_key != 'your_openai_api_key_here':
-        print("🔍 Found existing OpenAI API key")
-        test_result = test_openai_api(existing_key)
-        if test_result:
-            print("✅ Existing OpenAI API key is working!")
-            return True
-        else:
-            print("⚠️  Existing API key failed test, will prompt for new one")
-    
-    print("📋 To get your OpenAI API key:")
-    print("   1. Go to: https://platform.openai.com/api-keys")
-    print("   2. Sign in to your OpenAI account (or create one)")
-    print("   3. Click 'Create new secret key'")
-    print("   4. Give it a name (e.g., 'Receipt Printer')")
-    print("   5. Copy the key (starts with 'sk-')")
-    print("   6. ⚠️  Keep it secure - you won't see it again!")
-    print()
-    
-    print("💰 Pricing info:")
-    print("   • GPT-4.1: ~$0.005 per 1K input tokens, ~$0.015 per 1K output tokens")
-    print("   • Morning brief: ~$0.01-0.02 per generation")
-    print("   • Set usage limits at: https://platform.openai.com/usage")
-    print()
-    
-    api_key = input("Enter your OpenAI API key (or press Enter to skip): ").strip()
-    
-    if api_key:
-        # Validate API key format
-        if not api_key.startswith('sk-'):
-            print("⚠️  Warning: OpenAI API keys usually start with 'sk-'")
-            confirm = input("Continue anyway? (y/n): ").lower().strip()
-            if confirm != 'y':
-                print("⏭️  Skipped OpenAI setup")
-                return False
-        
-        # Update .env file
-        update_env_file('OPENAI_API_KEY', api_key)
-        print("✅ OpenAI API key saved!")
-        
-        # Test the API key
-        if test_openai_api(api_key):
-            print("✅ OpenAI API key is working!")
-            return True
-        else:
-            print("❌ OpenAI API key test failed")
-            return False
-    else:
-        print("⏭️  Skipped OpenAI setup")
+        print("OpenAI: configured")
+        return True
+    api_key = input("OpenAI API key (Enter to skip): ").strip()
+    if not api_key:
+        print("OpenAI: skipped")
         return False
+    update_env_file('OPENAI_API_KEY', api_key)
+    if test_openai_api(api_key):
+        print("OpenAI: saved & verified")
+        return True
+    print("OpenAI: saved but verification failed")
+    return False
 
 def test_openai_api(api_key):
     """Test OpenAI API key"""
@@ -799,37 +741,54 @@ def update_env_file(key, value):
         f.writelines(lines)
 
 def show_configuration_status():
-    """Show current configuration status"""
-    print("📊 Configuration Status:")
+    """Compact configuration status"""
+    print("Config:")
     
     # Check OpenWeatherMap
     weather_key = os.getenv('OPENWEATHER_API_KEY')
     if weather_key and weather_key != 'your_openweather_api_key_here':
-        print("   🌤️  OpenWeatherMap: ✅ Configured")
+        print("  weather: ✅")
     else:
-        print("   🌤️  OpenWeatherMap: ❌ Not configured")
+        print("  weather: ❌")
     
     # Check OpenAI
     openai_key = os.getenv('OPENAI_API_KEY')
     if openai_key and openai_key != 'your_openai_api_key_here':
         model = os.getenv('AI_MODEL', 'gpt-4o-mini')
         max_tokens = os.getenv('MAX_OUTPUT_TOKENS', '1200')
-        print(f"   🤖 OpenAI: ✅ Configured (model={model}, max_output_tokens={max_tokens})")
+        print(f"  openai: ✅ (model={model}, max_output_tokens={max_tokens})")
     else:
-        print("   🤖 OpenAI: ❌ Not configured")
+        print("  openai: ❌")
     
     # Check Google OAuth
     if os.path.exists('token_autogenerated/unified_google_token.json'):
-        print("   🔐 Google OAuth: ✅ Configured")
+        print("  oauth: ✅")
     else:
-        print("   🔐 Google OAuth: ❌ Not configured")
+        print("  oauth: ❌")
     
     # Check Thermal Printer
     printer_type = os.getenv('THERMAL_PRINTER_TYPE')
     if printer_type and printer_type != 'file_test':
-        print(f"   🖨️  Thermal Printer: ✅ Configured ({printer_type})")
+        print(f"  printer: ✅ ({printer_type})")
     else:
-        print("   🖨️  Thermal Printer: ⚠️  Using file-based testing")
+        print("  printer: file_test")
+
+def ensure_ai_env_defaults():
+    """Ensure AI_MODEL and MAX_OUTPUT_TOKENS exist in .env with sensible defaults."""
+    if not os.getenv('AI_MODEL'):
+        update_env_file('AI_MODEL', 'gpt-4o-mini')
+    if not os.getenv('MAX_OUTPUT_TOKENS'):
+        update_env_file('MAX_OUTPUT_TOKENS', '1200')
+
+def prompt_ai_defaults():
+    """Prompt for AI model and max output tokens (minimal)."""
+    current_model = os.getenv('AI_MODEL', 'gpt-4o-mini')
+    current_max = os.getenv('MAX_OUTPUT_TOKENS', '1200')
+    model = input(f"AI model [{current_model}]: ").strip() or current_model
+    max_out = input(f"Max output tokens [{current_max}]: ").strip() or current_max
+    update_env_file('AI_MODEL', model)
+    update_env_file('MAX_OUTPUT_TOKENS', max_out)
+    print("AI config: saved")
 
 def create_output_directories():
     """Create all necessary output directories for the receipt printer"""
@@ -916,48 +875,25 @@ OPENWEATHER_API_KEY=your_openweather_api_key_here
             print("✅ Basic .env file created!")
 
 def final_test():
-    """Run final test to ensure everything works"""
-    print("\n🧪 Final System Test")
-    print("-" * 20)
-    
+    """Minimal final test using ModularDataManager."""
     try:
-        # Check if we need to reload modules from virtual environment
         if os.path.exists("venv"):
             venv_site_packages = os.path.join("venv", "lib", "python3.12", "site-packages")
             if os.path.exists(venv_site_packages) and venv_site_packages not in sys.path:
                 sys.path.insert(0, venv_site_packages)
-                print("🔄 Reloaded virtual environment modules")
-        
-        # Test data services
-        from src.data_services import DataManager
-        
-        print("📊 Testing data services...")
-        manager = DataManager()
-        
-        # Test the new structured daily brief
-        brief_response = manager.get_daily_brief()
-        
-        print(f"✅ Greeting: {brief_response.greeting}")
-        print(f"✅ Brief: {brief_response.brief[:100]}...")
-        
+        from src.data_manager import ModularDataManager
+        print("Testing brief generation...")
+        manager = ModularDataManager()
+        content, _ = manager.generate_complete_receipt()
+        print("OK: brief generated")
         return True
-        
     except Exception as e:
-        print(f"❌ Final test failed: {e}")
-        print("   This might be due to missing API keys or credentials")
+        print(f"Final test error: {e}")
         return False
 
 def main():
-    """Main setup function"""
+    """Main setup function (simplified prompts)."""
     print_header()
-    
-    print("🎯 This setup will configure your Receipt Printer for:")
-    print("   • OpenWeatherMap API (weather data)")
-    print("   • OpenAI GPT-4o API (AI insights & greetings)")
-    print("   • Google OAuth (Gmail & Calendar)")
-    print("   • Task List Configuration (General & Shopping lists)")
-    print("   • Thermal Printer (ESC/POS printing)")
-    print()
     
     # Create .env file if it doesn't exist
     create_env_template()
@@ -967,18 +903,20 @@ def main():
     print()
     
     # Show current configuration status
-    print("🔍 Checking current configuration...")
+    print("Checking configuration...")
     show_configuration_status()
-    print()
+    ensure_ai_env_defaults()
     
-    # Install dependencies
-    install_dependencies()
+    # Install dependencies (best-effort)
+    try:
+        install_dependencies()
+    except Exception:
+        pass
     
-    # Setup OpenWeatherMap
+    # Minimal prompts for API keys & AI config
     setup_openweather()
-    
-    # Setup OpenAI
     setup_openai()
+    prompt_ai_defaults()
     
     # Setup Google OAuth
     setup_google_oauth()
@@ -991,25 +929,10 @@ def main():
     
     # Final test
     if final_test():
-        print("\n🎉 SETUP COMPLETED SUCCESSFULLY!")
-        print("=" * 40)
-        print("✅ Your Receipt Printer is ready to use!")
-        print()
-        
-        # Show final configuration summary
-        print("📊 Final Configuration Summary:")
+        print("\nSetup done.")
         show_configuration_status()
-        print()
-        
-        print("🚀 Next steps:")
-        print("   1. Run: python daily_brief.py")
-        print("   2. Enjoy your personalized German daily brief!")
-        print("   3. Your brief will be printed to the thermal printer automatically!")
-        print()
-        print("📚 Need help? Check README.md for usage instructions")
     else:
-        print("\n⚠️  Setup completed with some issues")
-        print("   Check the errors above and try again")
+        print("\nSetup finished with issues. See above.")
 
 if __name__ == "__main__":
     main()
