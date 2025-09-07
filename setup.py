@@ -813,8 +813,8 @@ def show_configuration_status():
     openai_key = os.getenv('OPENAI_API_KEY')
     if openai_key and openai_key != 'your_openai_api_key_here':
         model = os.getenv('AI_MODEL', 'gpt-4o-mini')
-        max_tokens = os.getenv('MAX_AI_TOKENS', '1200')
-        print(f"   🤖 OpenAI: ✅ Configured (model={model}, max_tokens={max_tokens})")
+        max_tokens = os.getenv('MAX_OUTPUT_TOKENS', '1200')
+        print(f"   🤖 OpenAI: ✅ Configured (model={model}, max_output_tokens={max_tokens})")
     else:
         print("   🤖 OpenAI: ❌ Not configured")
     
@@ -898,7 +898,7 @@ RECEIPT_LANGUAGE=german
 
 # AI Configuration
 AI_MODEL=gpt-4o-mini
-MAX_AI_TOKENS=1200
+MAX_OUTPUT_TOKENS=1200
 
 # Task List Configuration
 GENERAL_TASKS_LIST_NAME=Allgemeines
