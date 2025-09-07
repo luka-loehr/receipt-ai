@@ -812,7 +812,7 @@ class DataManager:
         emails = self.email_service.get_recent_emails()
         events = self.calendar_service.get_upcoming_events()
         tasks = self.task_service.get_tasks()
-        shopping_list = self.task_service.get_tasks_from_list("Einkaufsliste")
+        shopping_list = self.task_service.get_tasks_from_list(self.config.shopping_list_name)
         print(f"   🛒 Found {len(shopping_list)} shopping items")
         
         print("🤖 Generating AI brief...")

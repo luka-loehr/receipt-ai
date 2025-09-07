@@ -308,31 +308,19 @@ Remember: You are creating a smart, personalized daily assistant - not just list
         
         # Basic greeting logic
         hour = context.current_time.hour
-        if context.language == "German":
-            if 5 <= hour < 12:
-                greeting = f"Guten Morgen, {context.user_name}!"
-            elif 12 <= hour < 17:
-                greeting = f"Guten Tag, {context.user_name}!"
-            elif 17 <= hour < 22:
-                greeting = f"Guten Abend, {context.user_name}!"
-            else:
-                greeting = f"Gute Nacht, {context.user_name}!"
-            
-            title = "KI-Tagesbrief"
-            date_formatted = context.current_time.strftime("%A, %d. %B %Y")
-            
-        else:  # English fallback
-            if 5 <= hour < 12:
-                greeting = f"Good morning, {context.user_name}!"
-            elif 12 <= hour < 17:
-                greeting = f"Good afternoon, {context.user_name}!"
-            elif 17 <= hour < 22:
-                greeting = f"Good evening, {context.user_name}!"
-            else:
-                greeting = f"Good night, {context.user_name}!"
-            
-            title = "AI Daily Brief"
-            date_formatted = context.current_time.strftime("%A, %B %d, %Y")
+        # Let AI handle the language - just use English fallback
+        if 5 <= hour < 12:
+            greeting = f"Good morning, {context.user_name}!"
+        elif 12 <= hour < 17:
+            greeting = f"Good afternoon, {context.user_name}!"
+        elif 17 <= hour < 22:
+            greeting = f"Good evening, {context.user_name}!"
+        else:
+            greeting = f"Good night, {context.user_name}!"
+        
+        title = "Daily Brief"
+        date_formatted = context.current_time.strftime("%A, %B %d, %Y")
+        
         
         return CompleteReceiptContent(
             header=ReceiptHeader(
@@ -346,17 +334,17 @@ Remember: You are creating a smart, personalized daily assistant - not just list
                 day_outlook="Have a productive day!"
             ),
             task_section=TaskSection(
-                section_title="Tasks" if context.language == "English" else "Aufgaben",
+                section_title="Tasks" if context.language == "english" else "Tasks",
                 task_summary=f"{len(tasks)} tasks await your attention.",
                 display_count=len(tasks)
             ) if tasks else None,
             shopping_section=ShoppingSection(
-                section_title="Shopping" if context.language == "English" else "Einkaufsliste",
+                section_title="Shopping" if context.language == "english" else "Shopping",
                 shopping_summary=f"{len(shopping_items)} items to buy.",
                 display_count=len(shopping_items)
             ) if shopping_items else None,
             footer=ReceiptFooter(
-                timestamp_label="Generated at" if context.language == "English" else "Erstellt um",
+                timestamp_label="Generated at" if context.language == "english" else "Generated at",
                 timestamp=context.current_time.strftime("%H:%M"),
                 motivational_note="Stay organized!"
             ),

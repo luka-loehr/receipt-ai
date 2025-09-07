@@ -858,6 +858,9 @@ MAX_EMAILS_TO_PROCESS=10
 EMAIL_PRIORITY_KEYWORDS=urgent,important,asap,deadline,meeting
 EMAIL_SPAM_FILTERS=newsletter,marketing,promotion,unsubscribe
 
+# Language Configuration
+RECEIPT_LANGUAGE=german
+
 # Thermal Printer Configuration
 THERMAL_PRINTER_TYPE=file_test
 

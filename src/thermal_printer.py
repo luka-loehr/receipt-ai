@@ -119,7 +119,7 @@ class ThermalPrinter:
             if tasks:
                 self.printer.text("-" * 32 + "\n")
                 self.printer.set(align='center', font='a', width=1, height=1)
-                self.printer.text("✅ AUFGABEN\n\n")
+                self.printer.text("✅ TASKS\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
                 for i, task in enumerate(tasks, 1):
@@ -134,7 +134,7 @@ class ThermalPrinter:
             if shopping_list:
                 self.printer.text("-" * 32 + "\n")
                 self.printer.set(align='center', font='a', width=1, height=1)
-                self.printer.text("🛒 EINKAUFSLISTE\n\n")
+                self.printer.text("🛒 SHOPPING LIST\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
                 for i, item in enumerate(shopping_list, 1):
