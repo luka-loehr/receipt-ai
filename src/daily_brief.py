@@ -60,15 +60,8 @@ def print_to_thermal_printer(receipt_content, printable_content):
     try:
         from .thermal_printer import ThermalPrinter
         
-        # Get printer configuration
-        config = get_printer_config()
-        
-        # Create output directory for file-based printing
-        if config.connection_type == 'file':
-            os.makedirs('outputs/escpos', exist_ok=True)
-        
-        # Connect to printer
-        printer = ThermalPrinter(config)
+        # Connect to printer using centralized .env configuration
+        printer = ThermalPrinter.from_env()
         
         if printer.is_connected():
             # Print the daily brief using AI-generated content
