@@ -9,26 +9,14 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
 
-class Language(str, Enum):
-    """Supported languages"""
-    GERMAN = "german"
-    ENGLISH = "english"
-    SPANISH = "spanish"
-    FRENCH = "french"
-    ITALIAN = "italian"
-    DUTCH = "dutch"
-    PORTUGUESE = "portuguese"
-    RUSSIAN = "russian"
-    JAPANESE = "japanese"
-    KOREAN = "korean"
-    CHINESE = "chinese"
-    ARABIC = "arabic"
+# No need for hardcoded languages! AI can handle any language.
+# Just use strings directly - much simpler and more flexible.
 
 class AppConfig(BaseModel):
     """Application configuration"""
     
     # Language Settings
-    language: Language = Field(default=Language.GERMAN, description="System language")
+    language: str = Field(default="german", description="System language - AI can handle any language!")
     user_name: str = Field(default="Luka", description="User's name for personalization")
     timezone: str = Field(default="Europe/Berlin", description="User's timezone")
     
@@ -73,7 +61,7 @@ class AppConfig(BaseModel):
         load_dotenv()
         
         return cls(
-            language=Language(os.getenv('RECEIPT_LANGUAGE', 'german').lower()),
+            language=os.getenv('RECEIPT_LANGUAGE', 'german').lower(),
             user_name=os.getenv('USER_NAME', 'Luka'),
             timezone=os.getenv('USER_TIMEZONE', 'Europe/Berlin'),
             
@@ -100,40 +88,14 @@ class AppConfig(BaseModel):
         )
     
     def get_language_code(self) -> str:
-        """Get language code for AI prompts"""
-        language_codes = {
-            Language.GERMAN: "German",
-            Language.ENGLISH: "English", 
-            Language.SPANISH: "Spanish",
-            Language.FRENCH: "French",
-            Language.ITALIAN: "Italian",
-            Language.DUTCH: "Dutch",
-            Language.PORTUGUESE: "Portuguese",
-            Language.RUSSIAN: "Russian",
-            Language.JAPANESE: "Japanese",
-            Language.KOREAN: "Korean",
-            Language.CHINESE: "Chinese (Simplified)",
-            Language.ARABIC: "Arabic"
-        }
-        return language_codes[self.language]
+        """Get language code for AI prompts - AI can handle any language!"""
+        # Just return the language name - AI is smart enough to understand any language
+        return self.language.title()
     
     def get_shopping_list_name_localized(self) -> str:
-        """Get localized shopping list name"""
-        shopping_list_names = {
-            Language.GERMAN: "Einkaufsliste",
-            Language.ENGLISH: "Shopping List",
-            Language.SPANISH: "Lista de Compras", 
-            Language.FRENCH: "Liste de Courses",
-            Language.ITALIAN: "Lista della Spesa",
-            Language.DUTCH: "Boodschappenlijst",
-            Language.PORTUGUESE: "Lista de Compras",
-            Language.RUSSIAN: "Список покупок",
-            Language.JAPANESE: "買い物リスト",
-            Language.KOREAN: "쇼핑 목록",
-            Language.CHINESE: "购物清单",
-            Language.ARABIC: "قائمة التسوق"
-        }
-        return shopping_list_names.get(self.language, self.shopping_list_name)
+        """Get localized shopping list name - AI will handle this dynamically"""
+        # AI will generate the appropriate shopping list name in any language
+        return self.shopping_list_name
 
 # Global configuration instance - will be loaded dynamically
 config: Optional[AppConfig] = None
@@ -144,13 +106,6 @@ def get_config() -> AppConfig:
     if config is None:
         config = AppConfig.from_environment()
     return config
-
-def set_language(language: Language) -> None:
-    """Set the system language"""
-    global config
-    if config is None:
-        config = get_config()
-    config.language = language
 
 def set_user_name(user_name: str) -> None:
     """Set the user name"""
