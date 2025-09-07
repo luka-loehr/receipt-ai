@@ -812,7 +812,9 @@ def show_configuration_status():
     # Check OpenAI
     openai_key = os.getenv('OPENAI_API_KEY')
     if openai_key and openai_key != 'your_openai_api_key_here':
-        print("   🤖 OpenAI: ✅ Configured")
+        model = os.getenv('AI_MODEL', 'gpt-4o-mini')
+        max_tokens = os.getenv('MAX_AI_TOKENS', '1200')
+        print(f"   🤖 OpenAI: ✅ Configured (model={model}, max_tokens={max_tokens})")
     else:
         print("   🤖 OpenAI: ❌ Not configured")
     
@@ -893,6 +895,10 @@ EMAIL_SPAM_FILTERS=newsletter,marketing,promotion,unsubscribe
 
 # Language Configuration
 RECEIPT_LANGUAGE=german
+
+# AI Configuration
+AI_MODEL=gpt-4o-mini
+MAX_AI_TOKENS=1200
 
 # Task List Configuration
 GENERAL_TASKS_LIST_NAME=Allgemeines
