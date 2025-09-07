@@ -23,7 +23,7 @@ class AppConfig(BaseModel):
     # AI Settings  
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
     ai_model: str = Field(default="gpt-4o-mini", description="AI model to use")
-    max_tokens: int = Field(default=800, description="Maximum tokens for AI responses")
+    max_tokens: int = Field(default=800, description="Maximum output tokens for AI responses")
     
     # Weather Settings
     openweather_api_key: Optional[str] = Field(default=None, description="OpenWeatherMap API key")
@@ -68,7 +68,7 @@ class AppConfig(BaseModel):
             
             openai_api_key=os.getenv('OPENAI_API_KEY'),
             ai_model=os.getenv('AI_MODEL', 'gpt-4o-mini'),
-            max_tokens=int(os.getenv('MAX_AI_TOKENS', '800')),
+            max_tokens=int(os.getenv('MAX_OUTPUT_TOKENS', '800')),
             
             openweather_api_key=os.getenv('OPENWEATHER_API_KEY'),
             weather_location=os.getenv('WEATHER_LOCATION', 'Karlsruhe,DE'),
