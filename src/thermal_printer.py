@@ -141,7 +141,7 @@ class ThermalPrinter:
             # AI-generated footer
             self.printer.text("-" * 32 + "\n")
             self.printer.set(align='center', font='a', width=1, height=1)
-            self.printer.text(f"{receipt_content.footer.timestamp_label} {receipt_content.footer.timestamp}\n")
+            self.printer.text(f"{receipt_content.footer.footer_text}\n")
             
             # Final separator
             self.printer.text("=" * 32 + "\n")

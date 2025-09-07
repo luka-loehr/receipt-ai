@@ -59,34 +59,25 @@ class ReceiptHeader(BaseModel):
     greeting: str = Field(..., description="Personalized greeting in the target language")
     title: str = Field(..., description="Receipt title/subtitle in the target language")
     date_formatted: str = Field(..., description="Beautifully formatted date in the target language")
-    time_formatted: str = Field(..., description="Formatted time display")
 
 class ReceiptSummary(BaseModel):
     """AI-generated main content summary"""
     brief: str = Field(..., description="Main contextual brief analyzing all data")
-    weather_insight: Optional[str] = Field(None, description="Weather-related insights or recommendations")
-    priority_highlights: List[str] = Field(default=[], description="List of priority items that need attention")
-    day_outlook: str = Field(..., description="Overall outlook for the day")
 
 class TaskSection(BaseModel):
     """AI-generated task section"""
     section_title: str = Field(..., description="Section title in target language")
-    task_summary: str = Field(..., description="Brief summary of task situation")
-    display_count: int = Field(..., description="Number of tasks to display")
-    motivation: Optional[str] = Field(None, description="Motivational message about tasks")
 
 class ShoppingSection(BaseModel):
     """AI-generated shopping section"""
     section_title: str = Field(..., description="Section title in target language")
-    shopping_summary: str = Field(..., description="Brief summary of shopping needs")
-    display_count: int = Field(..., description="Number of shopping items to display")
-    shopping_tip: Optional[str] = Field(None, description="Shopping tip or reminder")
 
 class ReceiptFooter(BaseModel):
-    """AI-generated receipt footer"""
-    timestamp_label: str = Field(..., description="Timestamp label in target language")
-    timestamp: str = Field(..., description="Formatted timestamp")
-    motivational_note: Optional[str] = Field(None, description="Brief motivational closing note")
+    """AI-generated receipt footer (single localized sentence)"""
+    footer_text: str = Field(
+        ..., 
+        description="Single localized footer sentence like 'Generated on Sunday 21st at 17:14'"
+    )
 
 class CompleteReceiptContent(BaseModel):
     """Complete AI-generated receipt content with all sections"""
@@ -94,14 +85,7 @@ class CompleteReceiptContent(BaseModel):
     summary: ReceiptSummary = Field(..., description="Main content summary")
     task_section: Optional[TaskSection] = Field(None, description="Task section if tasks exist")
     shopping_section: Optional[ShoppingSection] = Field(None, description="Shopping section if items exist")
-    footer: ReceiptFooter = Field(..., description="Footer with timestamp and closing")
-    
-    # Metadata
-    language: str = Field(..., description="Language used for generation")
-    total_emails: int = Field(..., description="Total number of emails processed")
-    total_events: int = Field(..., description="Total number of calendar events")
-    total_tasks: int = Field(..., description="Total number of tasks")
-    total_shopping_items: int = Field(..., description="Total number of shopping items")
+    footer: ReceiptFooter = Field(..., description="Footer with localized generation sentence")
 
 # =================== CONTEXT MODELS ===================
 

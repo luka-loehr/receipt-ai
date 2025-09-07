@@ -338,7 +338,7 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
 {ai_brief}
 
 {tasks_text}{shopping_text}
-{brief_response.footer.timestamp_label} {time_str}"""
+{brief_response.footer.footer_text}"""
     
     # Save text file
     with open(config.output_txt_file, 'w', encoding='utf-8') as f:
@@ -488,14 +488,9 @@ def create_daily_brief(data_manager):
     # AI-generated footer
     y += 8 * DPI_SCALE
     
-    # AI-generated timestamp with label
-    timestamp_text = f"{receipt_content.footer.timestamp_label} {receipt_content.footer.timestamp}"
-    y += draw_centered_text(draw, y, timestamp_text, font_tiny, GRAY_COLOR)
-    
-    # Motivational note if available
-    if receipt_content.footer.motivational_note:
-        y += 8 * DPI_SCALE
-        y += draw_centered_text(draw, y, receipt_content.footer.motivational_note, font_tiny, GRAY_COLOR)
+    # AI-generated single-line footer text
+    footer_text = receipt_content.footer.footer_text
+    y += draw_centered_text(draw, y, footer_text, font_tiny, GRAY_COLOR)
     
     y += MARGIN
     
