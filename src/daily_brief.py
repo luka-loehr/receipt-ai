@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Daily Brief Generator — Personalized Daily Summary Receipt
-Creates a beautiful 58mm thermal printer briefing with your daily overview
+Creates a beautiful 58mm thermal printer briefing with your daily overview using modular architecture
 """
 
 from PIL import Image, ImageDraw, ImageFont
@@ -11,16 +11,14 @@ import os
 import random
 import platform
 
-# ============== CONFIGURATION ==============
-USER_NAME = "Luka"
-OUTPUT_FILE_PNG = "outputs/png/daily_brief.png"
-OUTPUT_FILE_TXT = "outputs/txt/daily_brief.txt"
+# Import modular system
+from .config import AppConfig, get_config
+from .models import CompleteReceiptContent, PrintableContent
+from .data_manager import ModularDataManager, get_data_manager
 
-# Import real data services
-from .data_services import DataManager, WeatherData, EmailData, CalendarEvent, TaskData
-
-# Initialize data manager
-data_manager = DataManager()
+# Initialize with configuration
+config = get_config()
+data_manager = get_data_manager()
 
 # ============================================
 
@@ -399,13 +397,19 @@ Erstellt um {time_str}"""
 
 
 def create_daily_brief():
-    """Generate the simplified AI-powered daily briefing receipt"""
-    # Fetch AI-generated comprehensive brief
-    brief_response = data_manager.get_daily_brief(USER_NAME)
-    ai_brief = brief_response.brief
+    """Generate the AI-powered daily briefing receipt using modular system"""
+    # Generate complete AI-powered receipt content
+    receipt_content = data_manager.generate_complete_receipt()
+    
+    # Format for printing 
+    printable_content = data_manager.format_for_printing(
+        receipt_content,
+        tasks=[], # Tasks will be handled by the receipt content
+        shopping_items=[]  # Shopping items will be handled by the receipt content
+    )
     
     # Also generate text version that matches PNG exactly
-    generate_text_brief(brief_response, ai_brief)
+    generate_text_brief(receipt_content)
     
     # Start with smaller canvas at higher resolution
     canvas_height = 1000 * DPI_SCALE
@@ -424,34 +428,16 @@ def create_daily_brief():
     y += draw_decorative_border(draw, y)
     y += 15 * DPI_SCALE
     
-    # Main greeting
-    greeting = get_greeting()
-    y += draw_centered_text(draw, y, greeting, font_title)
+    # AI-generated greeting
+    y += draw_centered_text(draw, y, receipt_content.header.greeting, font_title)
     y += 15 * DPI_SCALE
     
-    # Subtitle
-    y += draw_centered_text(draw, y, "KI-Tagesbrief", font_normal, GRAY_COLOR)
+    # AI-generated subtitle
+    y += draw_centered_text(draw, y, receipt_content.header.title, font_normal, GRAY_COLOR)
     y += 10 * DPI_SCALE
     
-    # Date and time
-    now = datetime.datetime.now()
-    
-    # German month and day names
-    german_months = {
-        1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
-        7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
-    }
-    german_days = {
-        0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
-        4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
-    }
-    
-    # Create German date string
-    day_name = german_days[now.weekday()]
-    month_name = german_months[now.month]
-    date_str = f"{day_name}, {now.day}. {month_name} {now.year}"
-    
-    y += draw_centered_text(draw, y, date_str, font_small)
+    # AI-generated date
+    y += draw_centered_text(draw, y, receipt_content.header.date_formatted, font_small)
     y += 20 * DPI_SCALE
     
     # Decorative separator
@@ -459,24 +445,27 @@ def create_daily_brief():
     y += 25 * DPI_SCALE
     
     # AI-generated comprehensive overview with optimized spacing
-    y += draw_wrapped_text(draw, MARGIN, y, ai_brief, font_normal, 
+    y += draw_wrapped_text(draw, MARGIN, y, receipt_content.summary.brief, font_normal, 
                           PAPER_WIDTH - MARGIN * 2, FG_COLOR, line_spacing_multiplier=1.4)
     y += 25 * DPI_SCALE
     
     # Tasks Section
-    tasks = None
-    original_tasks = None  # Store original untruncated tasks
-    if hasattr(data_manager, 'task_service'):
+    tasks = []
+    original_tasks = []  # Store original untruncated tasks
+    if receipt_content.task_section and printable_content.printable_tasks:
         try:
-            tasks = data_manager.task_service.get_tasks()
-            original_tasks = tasks  # Keep original for thermal printer
+            # Get raw task data for thermal printer
+            _, _, _, raw_tasks, _ = data_manager.fetch_all_data()
+            original_tasks = raw_tasks
+            tasks = printable_content.printable_tasks
+            
             if tasks:
                 # Section header
                 y += draw_separator(draw, y, "dashed", 1 * DPI_SCALE)
                 y += 15 * DPI_SCALE
                 
-                # "Aufgaben" title
-                y += draw_centered_text(draw, y, "✅ AUFGABEN", font_small, GRAY_COLOR)
+                # AI-generated section title
+                y += draw_centered_text(draw, y, receipt_content.task_section.section_title, font_small, GRAY_COLOR)
                 y += 15 * DPI_SCALE
                 
                 # Draw tasks with checkboxes
@@ -487,19 +476,8 @@ def create_daily_brief():
                     draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
                                  outline=FG_COLOR, width=1)
                     
-                    # Task text (no priority indicator)
-                    task_text = task.title
-                    if len(task_text) > 70:  # Truncate long task names with smart word handling
-                        # Find the last complete word that fits within 70 chars
-                        max_chars = 67  # Leave room for "..."
-                        words = task.title.split()
-                        truncated_title = ""
-                        for word in words:
-                            if len(truncated_title + " " + word) <= max_chars:
-                                truncated_title += (" " if truncated_title else "") + word
-                            else:
-                                break
-                        task_text = truncated_title + "..." if truncated_title else task.title[:67] + "..."
+                    # Use pre-formatted task text from printable content
+                    task_text = task.display_text
                     
                     # Draw task text
                     draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), task_text, 
@@ -515,38 +493,27 @@ def create_daily_brief():
         except Exception as e:
             print(f"⚠️  Error displaying tasks: {e}")
     
-    # Shopping List Section
-    if hasattr(data_manager, 'shopping_list') and data_manager.shopping_list:
+    # Shopping List Section  
+    if receipt_content.shopping_section and printable_content.printable_shopping:
         try:
             # Section header
             y += draw_separator(draw, y, "dashed", 1 * DPI_SCALE)
             y += 15 * DPI_SCALE
             
-            # "Einkaufsliste" title
-            y += draw_centered_text(draw, y, "🛒 EINKAUFSLISTE", font_small, GRAY_COLOR)
+            # AI-generated section title
+            y += draw_centered_text(draw, y, receipt_content.shopping_section.section_title, font_small, GRAY_COLOR)
             y += 15 * DPI_SCALE
             
             # Draw shopping list items with checkboxes
-            for i, item in enumerate(data_manager.shopping_list):
+            for i, item in enumerate(printable_content.printable_shopping):
                 # Checkbox (empty square)
                 checkbox_x = MARGIN + 10 * DPI_SCALE
                 checkbox_size = 12 * DPI_SCALE
                 draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
                              outline=FG_COLOR, width=1)
                 
-                # Item text (no priority indicator)
-                item_text = item.title
-                if len(item_text) > 70:  # Truncate long item names with smart word handling
-                    # Find the last complete word that fits within 70 chars
-                    max_chars = 67  # Leave room for "..."
-                    words = item.title.split()
-                    truncated_title = ""
-                    for word in words:
-                        if len(truncated_title + " " + word) <= max_chars:
-                            truncated_title += (" " if truncated_title else "") + word
-                        else:
-                            break
-                    item_text = truncated_title + "..." if truncated_title else item.title[:67] + "..."
+                # Use pre-formatted item text from printable content
+                item_text = item.display_text
                 
                 # Draw item text
                 draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), item_text, 
@@ -555,7 +522,7 @@ def create_daily_brief():
                 y += checkbox_size + 8 * DPI_SCALE
                 
                 # Add small spacing between items
-                if i < len(data_manager.shopping_list) - 1:
+                if i < len(printable_content.printable_shopping) - 1:
                     y += 5 * DPI_SCALE
             
             y += 15 * DPI_SCALE
@@ -566,12 +533,17 @@ def create_daily_brief():
     y += draw_decorative_border(draw, y)
     y += 15 * DPI_SCALE
     
-    # Generation timestamp
+    # AI-generated footer
     y += 8 * DPI_SCALE
     
-    # Generation timestamp
-    gen_time = now.strftime("%H:%M")
-    y += draw_centered_text(draw, y, f"Erstellt um {gen_time}", font_tiny, GRAY_COLOR)
+    # AI-generated timestamp with label
+    timestamp_text = f"{receipt_content.footer.timestamp_label} {receipt_content.footer.timestamp}"
+    y += draw_centered_text(draw, y, timestamp_text, font_tiny, GRAY_COLOR)
+    
+    # Motivational note if available
+    if receipt_content.footer.motivational_note:
+        y += 8 * DPI_SCALE
+        y += draw_centered_text(draw, y, receipt_content.footer.motivational_note, font_tiny, GRAY_COLOR)
     
     y += MARGIN
     
@@ -583,7 +555,7 @@ def create_daily_brief():
         new_size = (FINAL_WIDTH, int(y / DPI_SCALE))
         img = img.resize(new_size, Image.Resampling.LANCZOS)
     
-    return img, brief_response, original_tasks
+    return img, receipt_content, original_tasks
 
 def main():
     """Generate and save the daily briefing, then print to thermal printer"""
