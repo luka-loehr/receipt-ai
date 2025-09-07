@@ -56,8 +56,8 @@ def get_printer_config():
             device_id='outputs/escpos/daily_brief.txt'
         )
 
-def print_to_thermal_printer(greeting, brief, tasks=None):
-    """Print the daily brief to thermal printer using ESC/POS"""
+def print_to_thermal_printer(receipt_content, printable_content):
+    """Print the daily brief to thermal printer using AI-generated content"""
     try:
         from .thermal_printer import ThermalPrinter
         
@@ -74,56 +74,15 @@ def print_to_thermal_printer(greeting, brief, tasks=None):
         if printer.is_connected():
             print("🖨️  Printing to thermal printer...")
             
-            # Convert tasks to list of strings if available
-            task_list = []
-            if tasks:
-                print(f"📋 Printing {len(tasks)} tasks...")
-                for i, task in enumerate(tasks):
-                    task_title = task.title if hasattr(task, 'title') else str(task)
-                    
-                    # Apply the EXACT same logic as PNG/TXT preview
-                    if len(task_title) > 70:
-                        # Find the last complete word that fits within 70 chars
-                        max_chars = 67  # Leave room for "..."
-                        words = task_title.split()
-                        truncated_title = ""
-                        for word in words:
-                            if len(truncated_title + " " + word) <= max_chars:
-                                truncated_title += (" " if truncated_title else "") + word
-                            else:
-                                break
-                        final_title = truncated_title + "..." if truncated_title else task_title[:67] + "..."
-                    else:
-                        final_title = task_title
-                    
-                    task_list.append(final_title)
+            # Use the pre-processed printable content from AI
+            if printable_content.printable_tasks:
+                print(f"📋 Printing {len(printable_content.printable_tasks)} tasks...")
             
-            # Convert shopping list to list of strings if available
-            shopping_list = []
-            if hasattr(data_manager, 'shopping_list') and data_manager.shopping_list:
-                print(f"🛒 Printing {len(data_manager.shopping_list)} shopping items...")
-                for i, item in enumerate(data_manager.shopping_list):
-                    item_title = item.title if hasattr(item, 'title') else str(item)
-                    
-                    # Apply the EXACT same logic as tasks
-                    if len(item_title) > 70:
-                        # Find the last complete word that fits within 70 chars
-                        max_chars = 67  # Leave room for "..."
-                        words = item_title.split()
-                        truncated_title = ""
-                        for word in words:
-                            if len(truncated_title + " " + word) <= max_chars:
-                                truncated_title += (" " if truncated_title else "") + word
-                            else:
-                                break
-                        final_title = truncated_title + "..." if truncated_title else item_title[:67] + "..."
-                    else:
-                        final_title = item_title
-                    
-                    shopping_list.append(final_title)
+            if printable_content.printable_shopping:
+                print(f"🛒 Printing {len(printable_content.printable_shopping)} shopping items...")
             
-            # Print the daily brief
-            success = printer.print_daily_brief(greeting, brief, task_list, shopping_list)
+            # Print the daily brief using AI-generated content
+            success = printer.print_daily_brief(receipt_content, printable_content)
             
             if success:
                 print("✅ Daily brief printed successfully!")
@@ -565,8 +524,8 @@ def main():
     """Generate and save the daily briefing, then print to thermal printer"""
     print("📅  Generating your daily briefing...")
     
-    # Create briefing (now returns image, brief_response, and tasks)
-    brief_img, brief_response, tasks = create_daily_brief()
+    # Create briefing (now returns image, receipt_content, and tasks)
+    brief_img, receipt_content, tasks = create_daily_brief()
     
     # Save PNG
     brief_img.save(config.output_png_file)
@@ -576,14 +535,21 @@ def main():
     
     # Print to thermal printer
     print("\n🖨️  Printing to thermal printer...")
-    greeting = brief_response.header.greeting
-    brief = brief_response.summary.brief
+    
+    # Get printable content for thermal printer
+    current_config = get_config()
+    current_data_manager = ModularDataManager(current_config)
+    printable_content = current_data_manager.format_for_printing(
+        receipt_content,
+        tasks=[], # Tasks will be handled by the receipt content
+        shopping_items=[]  # Shopping items will be handled by the receipt content
+    )
     
     # Show what tasks are being sent to printer
     if tasks:
         print(f"📋 Sending {len(tasks)} tasks to printer...")
     
-    print_to_thermal_printer(greeting, brief, tasks)
+    print_to_thermal_printer(receipt_content, printable_content)
     
     print("\n☕ Perfect for your daily productivity ritual!")
     

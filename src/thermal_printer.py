@@ -42,20 +42,28 @@ class ThermalPrinter:
                     out_ep=self.config.out_ep,
                     timeout=self.config.timeout
                 )
+                # Set encoding for Chinese characters
+                self.printer.charset = 'UTF-8'
             elif self.config.connection_type == 'network':
                 self.printer = printer.Network(
                     host=self.config.host,
                     port=self.config.port,
                     timeout=self.config.timeout
                 )
+                # Set encoding for Chinese characters
+                self.printer.charset = 'UTF-8'
             elif self.config.connection_type == 'serial':
                 self.printer = printer.Serial(
                     devfile=self.config.device_id,
                     baudrate=9600,
                     timeout=self.config.timeout
                 )
+                # Set encoding for Chinese characters
+                self.printer.charset = 'UTF-8'
             elif self.config.connection_type == 'file':
                 self.printer = printer.File(self.config.device_id)
+                # Set encoding for Chinese characters
+                self.printer.charset = 'UTF-8'
             else:
                 raise ValueError(f"Unsupported connection type: {self.config.connection_type}")
             
@@ -72,8 +80,8 @@ class ThermalPrinter:
         """Check if printer is connected"""
         return self.printer is not None
     
-    def print_daily_brief(self, greeting: str, brief: str, tasks: List[str] = None, shopping_list: List[str] = None):
-        """Print daily brief in German using ESC/POS commands"""
+    def print_daily_brief(self, receipt_content, printable_content):
+        """Print daily brief using AI-generated content with proper UTF-8 encoding"""
         if not self.is_connected():
             print("❌ Printer not connected")
             return False
@@ -83,72 +91,57 @@ class ThermalPrinter:
             self.printer.set(align='center', font='a', width=2, height=2)
             self.printer.text("=" * 32 + "\n")
             
-            # Greeting
+            # AI-generated greeting
             self.printer.set(align='center', font='a', width=2, height=2)
-            self.printer.text(f"{greeting}\n")
+            self.printer.text(f"{receipt_content.header.greeting}\n")
             
-            # Subtitle
+            # AI-generated title
             self.printer.set(align='center', font='a', width=1, height=1)
-            self.printer.text("KI-Tagesbrief\n")
+            self.printer.text(f"{receipt_content.header.title}\n")
             
-            # Date (German format)
-            from datetime import datetime
-            now = datetime.now()
-            german_months = {
-                1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
-                7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
-            }
-            german_days = {
-                0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
-                4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
-            }
-            
-            day_name = german_days[now.weekday()]
-            month_name = german_months[now.month]
-            date_str = f"{day_name}, {now.day}. {month_name} {now.year}"
-            self.printer.text(f"{date_str}\n\n")
+            # AI-generated date
+            self.printer.set(align='center', font='a', width=1, height=1)
+            self.printer.text(f"{receipt_content.header.date_formatted}\n\n")
             
             # Separator
             self.printer.text("=" * 32 + "\n\n")
             
-            # Main brief content
+            # AI-generated main brief content
             self.printer.set(align='left', font='a', width=1, height=1)
-            self.printer.text(f"{brief}\n\n")
+            self.printer.text(f"{receipt_content.summary.brief}\n\n")
             
-            # Tasks section
-            if tasks:
+            # AI-generated tasks section
+            if receipt_content.task_section and printable_content.printable_tasks:
                 self.printer.text("-" * 32 + "\n")
                 self.printer.set(align='center', font='a', width=1, height=1)
-                self.printer.text("✅ TASKS\n\n")
+                self.printer.text(f"✅ {receipt_content.task_section.section_title}\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
-                for i, task in enumerate(tasks, 1):
-                    # Tasks are now pre-processed strings, not TaskData objects
-                    # No additional truncation needed here
+                for i, task in enumerate(printable_content.printable_tasks, 1):
                     task_title = str(task)
+                    if len(task_title) > 70:
+                        task_title = task_title[:67] + "..."
                     self.printer.text(f"□ {task_title}\n")
-                
                 self.printer.text("\n")
             
-            # Shopping list section
-            if shopping_list:
+            # AI-generated shopping list section
+            if receipt_content.shopping_section and printable_content.printable_shopping:
                 self.printer.text("-" * 32 + "\n")
                 self.printer.set(align='center', font='a', width=1, height=1)
-                self.printer.text("🛒 SHOPPING LIST\n\n")
+                self.printer.text(f"🛒 {receipt_content.shopping_section.section_title}\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
-                for i, item in enumerate(shopping_list, 1):
-                    # Items are pre-processed strings, no additional truncation needed
+                for i, item in enumerate(printable_content.printable_shopping, 1):
                     item_title = str(item)
+                    if len(item_title) > 70:
+                        item_title = item_title[:67] + "..."
                     self.printer.text(f"□ {item_title}\n")
-                
                 self.printer.text("\n")
             
-            # Footer
+            # AI-generated footer
             self.printer.text("-" * 32 + "\n")
             self.printer.set(align='center', font='a', width=1, height=1)
-            gen_time = datetime.now().strftime("%H:%M")
-            self.printer.text(f"Erstellt um {gen_time}\n")
+            self.printer.text(f"{receipt_content.footer.timestamp_label} {receipt_content.footer.timestamp}\n")
             
             # Final separator
             self.printer.text("=" * 32 + "\n")
