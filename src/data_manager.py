@@ -143,9 +143,8 @@ class ModularDataManager:
                 shopping_items=shopping_list
             )
             
-            print(f"\n✅ Generated receipt in {receipt_content.language}")
+            print(f"\n✅ Generated receipt")
             print(f"   📄 Content: {len(receipt_content.summary.brief)} chars")
-            print(f"   📊 Data: {receipt_content.total_emails}e, {receipt_content.total_events}ev, {receipt_content.total_tasks}t, {receipt_content.total_shopping_items}s")
             print()
             
             # Return both receipt content and raw data for reuse

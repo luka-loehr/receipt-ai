@@ -80,48 +80,47 @@ class EnhancedAIService:
     def _create_system_prompt(self, context: AIContext) -> str:
         """Create comprehensive system prompt for receipt generation"""
         
-        return f"""You are an intelligent receipt generator AI that creates personalized daily briefings. You MUST generate ALL content in {context.language} including headers, dates, greetings, and section titles.
+        return f"""ROLE
+You create receipt-style daily briefs. Output MUST be JSON matching the schema below. Return exactly and only the keys in the schema (no extras). Keep property names and casing exactly as shown. Write EVERYTHING in {context.language}.
 
-CORE RESPONSIBILITIES:
-1. Generate a time-appropriate greeting in {context.language}
-2. Format the current date beautifully in {context.language} cultural style
-3. Create contextual section titles in {context.language}
-4. Analyze all provided data and create meaningful insights
-5. Adapt tone and content based on time of day ({context.time_of_day})
+STYLE
+Concise, warm, helpful; address {context.user_name}. Use {context.timezone} for times and {context.language} locale for dates/phrasing. Be a smart filter (synthesize, don’t list). Connect weather↔activities and time↔priorities. In summary.brief write flowing prose (no bullet points).
 
-LANGUAGE & CULTURAL ADAPTATION:
-- Write EVERYTHING in {context.language} (dates, greetings, titles, content)
-- Use appropriate cultural date formatting for {context.language}
-- Apply cultural communication styles and expressions
-- Use time-appropriate greetings for the culture
-- Ensure proper formality level for the language
+TIME LOGIC
+Use context.time_of_day:
+- Morning: plan & priorities
+- Afternoon: progress & what’s left
+- Evening: wrap-up & tomorrow
+- Night: reflection & rest
 
-TIME-BASED BEHAVIOR:
-- Morning (5-12): Focus on day planning, priorities, motivation for the day ahead
-- Afternoon (12-17): Review progress, what still needs attention
-- Evening (17-22): Wrap up the day, remaining tasks, tomorrow preparation  
-- Night (22-5): Gentle reflection, minimal action items, rest-focused
+LENGTH HINTS (not strict, prefer brevity)
+greeting ≤ 7 words; title ≤ 10 words; summary.brief ≤ 3 sentences.
 
-TONE & STYLE:
-- Write like a helpful, intelligent friend
-- Be concise but warm and personal
-- Use {context.user_name}'s name naturally
-- Match the cultural communication style of {context.language}
-- Be encouraging and practical
+RESPONSE (ALL fields required. Strings use ""; arrays use []; integers use a number)
+{{
+  "header": {{
+    "greeting": "<personalized greeting in context.language>",
+    "title": "<short contextual subtitle in context.language>",
+    "date_formatted": "<localized long date>"
+  }},
+  "summary": {{
+    "brief": "<short flowing paragraph that smart-filters context; mention counts naturally>"
+  }},
+  "task_section": {{
+    "section_title": "<localized title for tasks>"
+  }},
+  "shopping_section": {{
+    "section_title": "<localized title for shopping>"
+  }},
+  "footer": {{
+    "footer_text": "<single localized sentence stating generation time only>"
+  }}
+}}
 
-CONTENT STRATEGY:
-- Don't list every detail - be a smart filter
-- Highlight only the most important/urgent items
-- Make contextual connections (weather → activities, time → priorities)
-- Provide actionable insights, not just data dumps
-- Reference quantities when relevant ("you have X tasks", "X emails waiting")
-
-OUTPUT REQUIREMENTS:
-- Generate proper cultural date formatting
-- Create appropriate section headers in {context.language}  
-- Use natural, flowing language (no bullet points or lists in the main brief)
-- Ensure all text fields are filled appropriately
-- Adapt greeting based on current time in {context.timezone}"""
+NOTES
+- Prefer what matters now (based on context.time_of_day). If weather/tasks/events are missing, leave respective strings "" and arrays [].
+- Do not return additional keys beyond the schema.
+- Keep every string in {context.language}."""
 
     def _create_user_prompt(self, context: AIContext) -> str:
         """Create detailed user prompt with all context data"""
@@ -239,7 +238,10 @@ GENERATION REQUIREMENTS:
 
 NOTE: You can handle ANY language! If {language_name} is not a common language, generate content in that language using your knowledge of world languages.
 
-Remember: You are creating a smart, personalized daily assistant - not just listing data!"""
+Remember: You are creating a smart, personalized daily assistant - not just listing data!
+
+FOOTER REQUIREMENT:
+- Return a single localized footer sentence in the footer field (footer_text) that states the generation time, e.g., "Generated on Sunday 21st at 17:14" (adapt this phrasing to the target language and locale). Do not include any motivational note or additional text in the footer."""
         
         return final_prompt
     
@@ -283,15 +285,7 @@ Remember: You are creating a smart, personalized daily assistant - not just list
             
             message = completion.choices[0].message
             if message.parsed:
-                # Ensure metadata is populated
-                result = message.parsed
-                result.total_emails = len(emails)
-                result.total_events = len(events) 
-                result.total_tasks = len(tasks)
-                result.total_shopping_items = len(shopping_items)
-                result.language = context.language
-                
-                return result
+                return message.parsed
             else:
                 raise Exception(f"AI refused to generate content: {message.refusal}")
                 
@@ -326,32 +320,19 @@ Remember: You are creating a smart, personalized daily assistant - not just list
                 greeting=greeting,
                 title=title,
                 date_formatted=date_formatted,
-                time_formatted=context.current_time.strftime("%H:%M")
             ),
             summary=ReceiptSummary(
-                brief=f"Your daily overview is ready. {len(emails)} emails, {len(events)} events, {len(tasks)} tasks.",
-                day_outlook="Have a productive day!"
+                brief=f"Your daily overview is ready. {len(emails)} emails, {len(events)} events, {len(tasks)} tasks."
             ),
             task_section=TaskSection(
-                section_title="Tasks" if context.language == "english" else "Tasks",
-                task_summary=f"{len(tasks)} tasks await your attention.",
-                display_count=len(tasks)
+                section_title="Tasks"
             ) if tasks else None,
             shopping_section=ShoppingSection(
-                section_title="Shopping" if context.language == "english" else "Shopping",
-                shopping_summary=f"{len(shopping_items)} items to buy.",
-                display_count=len(shopping_items)
+                section_title="Shopping"
             ) if shopping_items else None,
             footer=ReceiptFooter(
-                timestamp_label="Generated at" if context.language == "english" else "Generated at",
-                timestamp=context.current_time.strftime("%H:%M"),
-                motivational_note="Stay organized!"
+                footer_text=f"Generated on {context.current_time.strftime('%A %d at %H:%M')}"
             ),
-            language=context.language,
-            total_emails=len(emails),
-            total_events=len(events),
-            total_tasks=len(tasks),
-            total_shopping_items=len(shopping_items)
         )
 
 def create_ai_service(config: AppConfig) -> EnhancedAIService:
