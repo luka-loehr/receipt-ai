@@ -6,6 +6,7 @@ Handles direct printing to thermal printers using ESC/POS protocol
 
 import os
 from typing import List, Optional
+from dotenv import load_dotenv
 from dataclasses import dataclass
 from escpos import printer
 from escpos.exceptions import Error as ESCPOSError
@@ -30,6 +31,45 @@ class ThermalPrinter:
         self.config = config
         self.printer = None
         self._connect()
+
+    @staticmethod
+    def from_env() -> "ThermalPrinter":
+        """Build ThermalPrinter from environment variables (.env)."""
+        load_dotenv()
+        printer_type = os.getenv('THERMAL_PRINTER_TYPE', 'file_test')
+        if printer_type == 'usb':
+            vendor_id = os.getenv('PRINTER_VENDOR_ID')
+            product_id = os.getenv('PRINTER_PRODUCT_ID')
+            in_ep = os.getenv('PRINTER_IN_EP')
+            out_ep = os.getenv('PRINTER_OUT_EP')
+            config = PrinterConfig(
+                connection_type='usb',
+                device_id=f"USB_{vendor_id}_{product_id}",
+                vendor_id=int(vendor_id, 0) if vendor_id else None,
+                product_id=int(product_id, 0) if product_id else None,
+                in_ep=int(in_ep, 0) if in_ep else None,
+                out_ep=int(out_ep, 0) if out_ep else None,
+            )
+        elif printer_type == 'network':
+            host = os.getenv('PRINTER_HOST')
+            port = int(os.getenv('PRINTER_PORT', '9100'))
+            config = PrinterConfig(
+                connection_type='network',
+                device_id=host or 'printer',
+                host=host,
+                port=port,
+            )
+        elif printer_type == 'file_test' or printer_type == 'file':
+            path = os.getenv('PRINTER_FILE_PATH', 'outputs/escpos/daily_brief.txt')
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            config = PrinterConfig(
+                connection_type='file',
+                device_id=path,
+            )
+        else:
+            raise ValueError(f"Unsupported THERMAL_PRINTER_TYPE: {printer_type}")
+
+        return ThermalPrinter(config)
     
     def _connect(self):
         """Establish connection to printer"""
