@@ -57,22 +57,30 @@ class TaskService:
             # Build Tasks service
             service = build('tasks', 'v1', credentials=creds)
             
-            # Get tasks from the default task list
-            # First get the default task list
+            # Get tasks from the configured general tasks list
+            # First get all task lists
             task_lists = service.tasklists().list().execute()
-            default_list = None
+            general_list = None
             
-            # Find the default task list (usually "@default")
+            # Find the configured general tasks list
             for task_list in task_lists.get('items', []):
-                if task_list.get('id') == '@default':
-                    default_list = task_list
+                if task_list.get('title') == self.config.general_tasks_list_name:
+                    general_list = task_list
                     break
             
-            if not default_list:
-                # If no @default list, use the first available one
-                default_list = task_lists.get('items', [{}])[0]
+            if not general_list:
+                # If configured list not found, try to find by name or use first available
+                print(f"   ⚠️  List '{self.config.general_tasks_list_name}' not found. Available lists: {[t.get('title') for t in task_lists.get('items', [])]}")
+                # Try to find a list with similar name or use first available
+                for task_list in task_lists.get('items', []):
+                    if self.config.general_tasks_list_name.lower() in task_list.get('title', '').lower():
+                        general_list = task_list
+                        break
+                
+                if not general_list:
+                    general_list = task_lists.get('items', [{}])[0]
             
-            list_id = default_list.get('id')
+            list_id = general_list.get('id')
             
             # Get tasks from the selected list
             tasks_result = service.tasks().list(
@@ -84,8 +92,6 @@ class TaskService:
             
             tasks = tasks_result.get('items', [])
             task_data = []
-            
-            print(f"   ✅ Found {len(tasks)} tasks")
             
             # Process all tasks first
             for task in tasks:

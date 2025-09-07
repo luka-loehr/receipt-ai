@@ -5,6 +5,8 @@ Orchestrates all data services and AI generation for the receipt printer system
 """
 
 from typing import Optional, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 from .config import AppConfig, get_config
 from .models import (
     CompleteReceiptContent, WeatherData, EmailData, CalendarEvent, TaskData,
@@ -34,62 +36,102 @@ class ModularDataManager:
         
         # Storage for cached data
         self.last_shopping_list: List[TaskData] = []
-        
-        print(f"✅ Modular Data Manager initialized with language: {self.config.get_language_code()}")
     
     def fetch_all_data(self) -> tuple[Optional[WeatherData], List[EmailData], List[CalendarEvent], List[TaskData], List[TaskData]]:
-        """Fetch data from all services"""
+        """Fetch data from all services concurrently for better performance"""
         print("📊 Fetching data from all services...")
+        start_time = time.time()
         
-        # Fetch weather data
-        try:
-            weather = self.weather_service.get_current_weather()
-            print(f"   🌤️  Weather: {weather.temperature}, {weather.condition}")
-        except Exception as e:
-            print(f"   ⚠️  Weather fetch error: {e}")
-            weather = None
+        # Initialize result containers
+        weather = None
+        emails = []
+        events = []
+        tasks = []
+        shopping_list = []
         
-        # Fetch email data
-        try:
-            emails = self.email_service.get_recent_emails()
-            print(f"   📧 Emails: {len(emails)} processed")
-        except Exception as e:
-            print(f"   ⚠️  Email fetch error: {e}")
-            emails = []
+        # Define service functions for concurrent execution
+        def fetch_weather():
+            try:
+                result = self.weather_service.get_current_weather()
+                print(f"   🌤️  Weather: {result.temperature}, {result.condition}")
+                return ('weather', result)
+            except Exception as e:
+                print(f"   ⚠️  Weather fetch error: {e}")
+                return ('weather', None)
         
-        # Fetch calendar data
-        try:
-            events = self.calendar_service.get_upcoming_events()
-            print(f"   📅 Events: {len(events)} found")
-        except Exception as e:
-            print(f"   ⚠️  Calendar fetch error: {e}")
-            events = []
+        def fetch_emails():
+            try:
+                result = self.email_service.get_recent_emails()
+                return ('emails', result)
+            except Exception as e:
+                print(f"   ⚠️  Email fetch error: {e}")
+                return ('emails', [])
         
-        # Fetch tasks
-        try:
-            tasks = self.task_service.get_tasks()
-            print(f"   ✅ Tasks: {len(tasks)} found")
-        except Exception as e:
-            print(f"   ⚠️  Task fetch error: {e}")
-            tasks = []
+        def fetch_events():
+            try:
+                result = self.calendar_service.get_upcoming_events()
+                return ('events', result)
+            except Exception as e:
+                print(f"   ⚠️  Calendar fetch error: {e}")
+                return ('events', [])
         
-        # Fetch shopping list
-        try:
-            shopping_list = self.task_service.get_shopping_list()
-            self.last_shopping_list = shopping_list  # Cache for later use
-            print(f"   🛒 Shopping: {len(shopping_list)} items")
-        except Exception as e:
-            print(f"   ⚠️  Shopping list fetch error: {e}")
-            shopping_list = []
+        def fetch_tasks():
+            try:
+                result = self.task_service.get_tasks()
+                print(f"   ✅ Found {len(result)} tasks")
+                return ('tasks', result)
+            except Exception as e:
+                print(f"   ⚠️  Task fetch error: {e}")
+                return ('tasks', [])
+        
+        def fetch_shopping():
+            try:
+                result = self.task_service.get_shopping_list()
+                self.last_shopping_list = result  # Cache for later use
+                print(f"   🛒 Found {len(result)} shopping items")
+                return ('shopping', result)
+            except Exception as e:
+                print(f"   ⚠️  Shopping list fetch error: {e}")
+                return ('shopping', [])
+        
+        # Execute all services concurrently
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # Submit all tasks
+            future_to_service = {
+                executor.submit(fetch_weather): 'weather',
+                executor.submit(fetch_emails): 'emails', 
+                executor.submit(fetch_events): 'events',
+                executor.submit(fetch_tasks): 'tasks',
+                executor.submit(fetch_shopping): 'shopping'
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_service):
+                service_name, result = future.result()
+                
+                if service_name == 'weather':
+                    weather = result
+                elif service_name == 'emails':
+                    emails = result
+                elif service_name == 'events':
+                    events = result
+                elif service_name == 'tasks':
+                    tasks = result
+                elif service_name == 'shopping':
+                    shopping_list = result
+        
+        # Calculate and display timing
+        elapsed_time = time.time() - start_time
+        print(f"   ⚡ All data fetched in {elapsed_time:.2f} seconds")
         
         return weather, emails, events, tasks, shopping_list
     
-    def generate_complete_receipt(self) -> CompleteReceiptContent:
-        """Generate complete AI-powered receipt content"""
-        print("🤖 Generating AI-powered receipt content...")
-        
+    def generate_complete_receipt(self) -> tuple[CompleteReceiptContent, tuple]:
+        """Generate complete AI-powered receipt content and return raw data for reuse"""
         # Fetch all data
         weather, emails, events, tasks, shopping_list = self.fetch_all_data()
+        
+        print("\n🤖 Generating AI-powered receipt content...")
         
         # Generate complete content using AI
         try:
@@ -101,11 +143,14 @@ class ModularDataManager:
                 shopping_items=shopping_list
             )
             
-            print(f"✅ Generated receipt in {receipt_content.language}")
+            print(f"\n✅ Generated receipt in {receipt_content.language}")
             print(f"   📄 Content: {len(receipt_content.summary.brief)} chars")
             print(f"   📊 Data: {receipt_content.total_emails}e, {receipt_content.total_events}ev, {receipt_content.total_tasks}t, {receipt_content.total_shopping_items}s")
+            print()
             
-            return receipt_content
+            # Return both receipt content and raw data for reuse
+            raw_data = (weather, emails, events, tasks, shopping_list)
+            return receipt_content, raw_data
             
         except Exception as e:
             print(f"❌ AI generation error: {e}")

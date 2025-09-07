@@ -137,6 +137,39 @@ def check_google_credentials():
         print("   Please download it from Google Cloud Console and place it in cloud_credentials/ folder")
         return False
 
+def setup_task_lists():
+    """Configure task list names"""
+    print("\n📋 Task List Configuration")
+    print("-" * 30)
+    
+    # Check if task lists are already configured
+    existing_general = os.getenv('GENERAL_TASKS_LIST_NAME')
+    existing_shopping = os.getenv('SHOPPING_LIST_NAME')
+    
+    if existing_general and existing_general != 'General':
+        print(f"🔍 Found existing general tasks list: {existing_general}")
+        print("✅ Using existing general tasks list configuration")
+    else:
+        print("📋 Configure your Google Tasks list names:")
+        print("   • General tasks list: Your main task list (e.g., 'General', 'Allgemeines', 'Tasks')")
+        print("   • Shopping list: Your shopping list (e.g., 'Shopping List', 'Einkaufsliste', 'Groceries')")
+        print()
+        
+        general_name = input("Enter general tasks list name (default: General): ").strip() or "General"
+        update_env_file('GENERAL_TASKS_LIST_NAME', general_name)
+        print(f"✅ General tasks list set to: {general_name}")
+    
+    if existing_shopping and existing_shopping != 'Shopping List':
+        print(f"🔍 Found existing shopping list: {existing_shopping}")
+        print("✅ Using existing shopping list configuration")
+    else:
+        shopping_name = input("Enter shopping list name (default: Shopping List): ").strip() or "Shopping List"
+        update_env_file('SHOPPING_LIST_NAME', shopping_name)
+        print(f"✅ Shopping list set to: {shopping_name}")
+    
+    print("\n💡 These lists must exist in your Google Tasks for the system to work properly")
+    return True
+
 def setup_thermal_printer():
     """Set up thermal printer connection"""
     print("\n🖨️  Thermal Printer Setup")
@@ -861,6 +894,10 @@ EMAIL_SPAM_FILTERS=newsletter,marketing,promotion,unsubscribe
 # Language Configuration
 RECEIPT_LANGUAGE=german
 
+# Task List Configuration
+GENERAL_TASKS_LIST_NAME=Allgemeines
+SHOPPING_LIST_NAME=Einkaufsliste
+
 # Thermal Printer Configuration
 THERMAL_PRINTER_TYPE=file_test
 
@@ -912,6 +949,7 @@ def main():
     print("   • OpenWeatherMap API (weather data)")
     print("   • OpenAI GPT-4o API (AI insights & greetings)")
     print("   • Google OAuth (Gmail & Calendar)")
+    print("   • Task List Configuration (General & Shopping lists)")
     print("   • Thermal Printer (ESC/POS printing)")
     print()
     
@@ -938,6 +976,9 @@ def main():
     
     # Setup Google OAuth
     setup_google_oauth()
+    
+    # Setup Task Lists
+    setup_task_lists()
     
     # Setup Thermal Printer
     setup_thermal_printer()

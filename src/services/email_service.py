@@ -64,7 +64,7 @@ class EmailService:
             messages = results.get('messages', [])
             email_data = []
             
-            print(f"   📧 Processing {len(messages)} emails")
+            print(f"   📧 Found {len(messages)} emails")
             
             for message in messages:
                 msg = service.users().messages().get(

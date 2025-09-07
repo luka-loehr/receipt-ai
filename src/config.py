@@ -42,6 +42,7 @@ class AppConfig(BaseModel):
     
     # Task Settings
     max_tasks_to_process: int = Field(default=15, description="Maximum tasks to process")
+    general_tasks_list_name: str = Field(default="General", description="Name of general tasks list in Google Tasks")
     shopping_list_name: str = Field(default="Shopping List", description="Name of shopping list in Google Tasks")
     
     # Printer Settings
@@ -77,7 +78,8 @@ class AppConfig(BaseModel):
             email_spam_filters=os.getenv('EMAIL_SPAM_FILTERS', 'newsletter,marketing,promotion,unsubscribe').split(','),
             
             max_tasks_to_process=int(os.getenv('MAX_TASKS_TO_PROCESS', '15')),
-            shopping_list_name=os.getenv('SHOPPING_LIST_NAME', 'Shopping List'),
+            general_tasks_list_name=os.getenv('GENERAL_TASKS_LIST_NAME', 'Allgemeines'),
+            shopping_list_name=os.getenv('SHOPPING_LIST_NAME', 'Einkaufsliste'),
             
             thermal_printer_type=os.getenv('THERMAL_PRINTER_TYPE', 'file_test'),
             paper_width_mm=int(os.getenv('PAPER_WIDTH_MM', '58')),
