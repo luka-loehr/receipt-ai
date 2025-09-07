@@ -263,15 +263,16 @@ def get_greeting():
     import datetime
     
     current_hour = datetime.datetime.now().hour
+    user_name = config.user_name
     
     if 5 <= current_hour < 12:
-        return f"Guten Morgen, {USER_NAME}!"
+        return f"Guten Morgen, {user_name}!"
     elif 12 <= current_hour < 17:
-        return f"Guten Tag, {USER_NAME}!"
+        return f"Guten Tag, {user_name}!"
     elif 17 <= current_hour < 22:
-        return f"Guten Abend, {USER_NAME}!"
+        return f"Guten Abend, {user_name}!"
     else:
-        return f"Gute Nacht, {USER_NAME}!"
+        return f"Gute Nacht, {user_name}!"
 
 def get_priority_symbol(priority):
     """Get visual indicator for priority"""
@@ -288,7 +289,7 @@ def generate_german_overview(emails, events):
     try:
         # Use DataManager's AI service to generate the overview when available
         # We can't import the manager globally here due to ordering; use the existing instance
-        return data_manager.ai_service.generate_german_overview(emails, events, user_name=USER_NAME)
+        return data_manager.ai_service.generate_german_overview(emails, events, user_name=config.user_name)
     except Exception as e:
         print(f"⚠️  German overview generation error: {e}")
         # Minimal fallback
@@ -391,7 +392,7 @@ KI-Tagesbrief
 Erstellt um {time_str}"""
     
     # Save text file
-    with open(OUTPUT_FILE_TXT, 'w', encoding='utf-8') as f:
+    with open(config.output_txt_file, 'w', encoding='utf-8') as f:
         f.write(text_content)
     
 
@@ -409,7 +410,7 @@ def create_daily_brief():
     )
     
     # Also generate text version that matches PNG exactly
-    generate_text_brief(receipt_content)
+    generate_text_brief(receipt_content, receipt_content.summary.brief)
     
     # Start with smaller canvas at higher resolution
     canvas_height = 1000 * DPI_SCALE
@@ -565,15 +566,15 @@ def main():
     brief_img, brief_response, tasks = create_daily_brief()
     
     # Save PNG
-    brief_img.save(OUTPUT_FILE_PNG)
+    brief_img.save(config.output_png_file)
     
     # Success message
     print(f"✅ Daily brief created")
     
     # Print to thermal printer
     print("\n🖨️  Printing to thermal printer...")
-    greeting = get_greeting()
-    brief = brief_response.brief
+    greeting = brief_response.header.greeting
+    brief = brief_response.summary.brief
     
     # Show what tasks are being sent to printer
     if tasks:
@@ -588,18 +589,18 @@ def main():
         import subprocess
         import sys
         if sys.platform == "darwin":  # macOS
-            subprocess.run(["open", OUTPUT_FILE_PNG])
+            subprocess.run(["open", config.output_png_file])
         elif sys.platform == "linux":
             # Try multiple Linux image viewers
             viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
             for viewer in viewers:
                 try:
-                    subprocess.run([viewer, OUTPUT_FILE_PNG], check=True)
+                    subprocess.run([viewer, config.output_png_file], check=True)
                     break
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     continue
         elif sys.platform == "win32":  # Windows
-            subprocess.run(["start", OUTPUT_FILE_PNG], shell=True)
+            subprocess.run(["start", config.output_png_file], shell=True)
     except:
         pass
 
