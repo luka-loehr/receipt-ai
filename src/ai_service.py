@@ -15,7 +15,7 @@ from .models import (
     ShoppingSection, ReceiptFooter, AIContext, GenerationRequest,
     WeatherData, EmailData, CalendarEvent, TaskData, GenerationError
 )
-from .config import AppConfig, Language
+from .config import AppConfig
 
 
 class EnhancedAIService:
@@ -216,7 +216,10 @@ SHOPPING LIST ({len(context.shopping_items)} items):"""
             shopping_info += f"""
 Items: {', '.join([item.title[:20] for item in context.shopping_items[:8]])}"""
         
-        final_prompt = f"""Generate a complete personalized daily briefing for {context.user_name} in {context.language}.
+        # Get language name for AI prompts - just use the string directly
+        language_name = context.language
+        
+        final_prompt = f"""Generate a complete personalized daily briefing for {context.user_name} in {language_name}.
 
 {time_info}
 {weather_info}
@@ -226,14 +229,16 @@ Items: {', '.join([item.title[:20] for item in context.shopping_items[:8]])}"""
 {shopping_info}
 
 GENERATION REQUIREMENTS:
-- Create appropriate greeting for {context.time_of_day} in {context.language}
-- Format date in beautiful {context.language} cultural style
-- Generate section titles in {context.language}
+- Create appropriate greeting for {context.time_of_day} in {language_name}
+- Format date in beautiful {language_name} cultural style
+- Generate section titles in {language_name}
 - Write main brief analyzing the context intelligently
 - Focus on what's most important for {context.time_of_day}
-- Be culturally appropriate for {context.language}
+- Be culturally appropriate for {language_name}
 - Reference quantities naturally ("you have X tasks to tackle")
 - Connect related information (weather + activities, time + priorities)
+
+NOTE: You can handle ANY language! If {language_name} is not a common language, generate content in that language using your knowledge of world languages.
 
 Remember: You are creating a smart, personalized daily assistant - not just listing data!"""
         

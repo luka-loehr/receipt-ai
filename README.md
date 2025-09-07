@@ -1,10 +1,10 @@
 # Receipt Printer
 
-🌍 **Multilingual AI daily briefings** for thermal printers. Fetches real data from Google APIs, generates culturally appropriate AI summaries in 12+ languages, and prints to ESC/POS thermal printers.
+🌍 **Multilingual AI daily briefings** for thermal printers. Fetches real data from Google APIs, generates culturally appropriate AI summaries in any language, and prints to ESC/POS thermal printers.
 
 ## Features
 
-- **🌍 12+ Languages**: German, English, Spanish, French, Italian, Dutch, Portuguese, Russian, Japanese, Korean, Chinese, Arabic
+- **🌍 Universal Language Support**: AI-powered support for ANY language!
 - **🤖 Complete AI Generation**: All content (greetings, dates, titles, briefs) is AI-generated and culturally appropriate
 - **📊 Real Google data**: Gmail, Calendar, Tasks
 - **🌤️ Weather integration** with OpenWeatherMap
@@ -23,40 +23,12 @@ python3 daily_brief.py
 
 ## 🌍 Language Configuration
 
-The system supports **12+ languages** with full AI-generated content. Choose your preferred method:
-
-### Method 1: Environment Variable (Recommended)
-Add to your `.env` file:
+Just set your language in the `.env` file:
 ```bash
 RECEIPT_LANGUAGE=english
 ```
 
-### Method 2: Interactive Switcher
-```bash
-python3 switch_language.py
-```
-
-### Method 3: Python Code
-```python
-from src.config import set_language, Language
-set_language(Language.ENGLISH)
-```
-
-### Supported Languages
-- 🇩🇪 German (`german`) - "Guten Morgen, Luka!"
-- 🇺🇸 English (`english`) - "Good morning, Luka!"
-- 🇪🇸 Spanish (`spanish`) - "¡Buenos días, Luka!"
-- 🇫🇷 French (`french`) - "Bonjour, Luka!"
-- 🇮🇹 Italian (`italian`) - "Buongiorno, Luka!"
-- 🇳🇱 Dutch (`dutch`) - "Goedemorgen, Luka!"
-- 🇵🇹 Portuguese (`portuguese`) - "Bom dia, Luka!"
-- 🇷🇺 Russian (`russian`) - "Доброе утро, Luka!"
-- 🇯🇵 Japanese (`japanese`) - "おはようございます、Lukaさん！"
-- 🇰🇷 Korean (`korean`) - "좋은 아침이에요, Luka!"
-- 🇨🇳 Chinese (`chinese`) - "早上好，Luka！"
-- 🇸🇦 Arabic (`arabic`) - "صباح الخير، Luka！"
-
-📖 **See [LANGUAGE_SETUP.md](LANGUAGE_SETUP.md) for detailed configuration guide.**
+The AI can handle ANY language! Examples: `german`, `spanish`, `french`, `swahili`, `hindi`, `esperanto`, etc.
 
 ## What You Need
 
