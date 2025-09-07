@@ -17,7 +17,11 @@
 ```bash
 git clone https://github.com/luka-loehr/receipt-printer.git
 cd receipt-printer
-python3 setup.py  # Installs dependencies and configures everything
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp env.example .env
+# Place Google OAuth client credentials (Desktop App) JSON into cloud_credentials/ (any .json filename)
+python3 oauth_setup.py
 python3 daily_brief.py
 ```
 
@@ -32,7 +36,7 @@ The AI can handle ANY language! Examples: `german`, `spanish`, `french`, `swahil
 
 ## What You Need
 
-1. **Google Cloud credentials** (`google_credentials.json` in `cloud_credentials/`)
+1. **Google Cloud credentials** (`google_credentials.json` placed at `cloud_credentials/google_credentials.json`)
    - Enable Gmail API, Calendar API, Tasks API
    - Download OAuth 2.0 credentials
 
@@ -48,11 +52,11 @@ The AI can handle ANY language! Examples: `german`, `spanish`, `french`, `swahil
 
 ## How It Works
 
-1. **Setup** (`python3 setup.py`):
-   - Installs all dependencies
-   - Configures Google OAuth
-   - Sets up API keys
-   - Detects and configures thermal printer
+1. **Setup**:
+   - Install dependencies: `pip install -r requirements.txt`
+   - Copy `env.example` to `.env` and adjust values
+   - Place Google OAuth client credentials JSON at `cloud_credentials/google_credentials.json`
+   - Run OAuth: `python3 oauth_setup.py`
 
 2. **Daily Brief** (`python3 daily_brief.py`):
    - Fetches emails, calendar, tasks, weather
@@ -91,7 +95,7 @@ THERMAL_PRINTER_TYPE=usb_auto  # or network_auto, file_test
 ```
 receipt-printer/
 ├── daily_brief.py         # Main entry point
-├── setup.py              # Installation & configuration script
+├── oauth_setup.py        # Google OAuth-only setup script
 ├── requirements.txt       # Python dependencies
 ├── README.md             # This file
 ├── src/                  # Core source code

@@ -31,14 +31,6 @@ class AppConfig(BaseModel):
     
     # Email Settings
     max_emails_to_process: int = Field(default=10, description="Maximum emails to process")
-    email_priority_keywords: list[str] = Field(
-        default=["urgent", "important", "asap", "deadline", "meeting"],
-        description="Keywords that indicate high priority emails"
-    )
-    email_spam_filters: list[str] = Field(
-        default=["newsletter", "marketing", "promotion", "unsubscribe"],
-        description="Keywords to filter out spam emails"
-    )
     
     # Task Settings
     max_tasks_to_process: int = Field(default=15, description="Maximum tasks to process")
@@ -74,8 +66,6 @@ class AppConfig(BaseModel):
             weather_location=os.getenv('WEATHER_LOCATION', 'Karlsruhe,DE'),
             
             max_emails_to_process=int(os.getenv('MAX_EMAILS_TO_PROCESS', '10')),
-            email_priority_keywords=os.getenv('EMAIL_PRIORITY_KEYWORDS', 'urgent,important,asap,deadline,meeting').split(','),
-            email_spam_filters=os.getenv('EMAIL_SPAM_FILTERS', 'newsletter,marketing,promotion,unsubscribe').split(','),
             
             max_tasks_to_process=int(os.getenv('MAX_TASKS_TO_PROCESS', '15')),
             general_tasks_list_name=os.getenv('GENERAL_TASKS_LIST_NAME', 'Allgemeines'),
