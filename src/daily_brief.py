@@ -378,18 +378,17 @@ def generate_text_brief(brief_response, ai_brief):
         except Exception as e:
             print(f"⚠️  Error generating shopping list for text: {e}")
     
-    # Create text content that matches PNG exactly
-    greeting = get_greeting()
-    text_content = f"""{greeting}
+    # Create text content using AI-generated content
+    text_content = f"""{brief_response.header.greeting}
 
-KI-Tagesbrief
+{brief_response.header.title}
 
-{date_str}
+{brief_response.header.date_formatted}
 
 {ai_brief}
 
 {tasks_text}{shopping_text}
-Erstellt um {time_str}"""
+{brief_response.footer.timestamp_label} {time_str}"""
     
     # Save text file
     with open(config.output_txt_file, 'w', encoding='utf-8') as f:
@@ -399,11 +398,15 @@ Erstellt um {time_str}"""
 
 def create_daily_brief():
     """Generate the AI-powered daily briefing receipt using modular system"""
+    # Get fresh data manager with current language settings
+    current_config = get_config()
+    current_data_manager = ModularDataManager(current_config)
+    
     # Generate complete AI-powered receipt content
-    receipt_content = data_manager.generate_complete_receipt()
+    receipt_content = current_data_manager.generate_complete_receipt()
     
     # Format for printing 
-    printable_content = data_manager.format_for_printing(
+    printable_content = current_data_manager.format_for_printing(
         receipt_content,
         tasks=[], # Tasks will be handled by the receipt content
         shopping_items=[]  # Shopping items will be handled by the receipt content
