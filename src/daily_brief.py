@@ -527,25 +527,27 @@ def main():
     
     print_to_thermal_printer(receipt_content, printable_content)
     
-    # Auto-open image
-    try:
-        import subprocess
-        import sys
-        if sys.platform == "darwin":  # macOS
-            subprocess.run(["open", config.output_png_file])
-        elif sys.platform == "linux":
-            # Try multiple Linux image viewers
-            viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
-            for viewer in viewers:
-                try:
-                    subprocess.run([viewer, config.output_png_file], check=True)
-                    break
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    continue
-        elif sys.platform == "win32":  # Windows
-            subprocess.run(["start", config.output_png_file], shell=True)
-    except:
-        pass
+    # Auto-open image (controlled by PREVIEW_PNG)
+    preview_png = os.getenv('PREVIEW_PNG', 'true').lower() == 'true'
+    if preview_png:
+        try:
+            import subprocess
+            import sys
+            if sys.platform == "darwin":  # macOS
+                subprocess.run(["open", config.output_png_file])
+            elif sys.platform == "linux":
+                # Try multiple Linux image viewers
+                viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
+                for viewer in viewers:
+                    try:
+                        subprocess.run([viewer, config.output_png_file], check=True)
+                        break
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+            elif sys.platform == "win32":  # Windows
+                subprocess.run(["start", config.output_png_file], shell=True)
+        except:
+            pass
 
 if __name__ == "__main__":
     main()
