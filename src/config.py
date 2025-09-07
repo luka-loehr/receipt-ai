@@ -42,7 +42,7 @@ class AppConfig(BaseModel):
     
     # Task Settings
     max_tasks_to_process: int = Field(default=15, description="Maximum tasks to process")
-    shopping_list_name: str = Field(default="Einkaufsliste", description="Name of shopping list in Google Tasks")
+    shopping_list_name: str = Field(default="Shopping List", description="Name of shopping list in Google Tasks")
     
     # Printer Settings
     thermal_printer_type: str = Field(default="file_test", description="Thermal printer configuration type")
@@ -77,7 +77,7 @@ class AppConfig(BaseModel):
             email_spam_filters=os.getenv('EMAIL_SPAM_FILTERS', 'newsletter,marketing,promotion,unsubscribe').split(','),
             
             max_tasks_to_process=int(os.getenv('MAX_TASKS_TO_PROCESS', '15')),
-            shopping_list_name=os.getenv('SHOPPING_LIST_NAME', 'Einkaufsliste'),
+            shopping_list_name=os.getenv('SHOPPING_LIST_NAME', 'Shopping List'),
             
             thermal_printer_type=os.getenv('THERMAL_PRINTER_TYPE', 'file_test'),
             paper_width_mm=int(os.getenv('PAPER_WIDTH_MM', '58')),
@@ -106,6 +106,13 @@ def get_config() -> AppConfig:
     if config is None:
         config = AppConfig.from_environment()
     return config
+
+def set_language(language_name: str) -> None:
+    """Set the system language - AI can handle ANY language!"""
+    global config
+    if config is None:
+        config = get_config()
+    config.language = language_name.lower()
 
 def set_user_name(user_name: str) -> None:
     """Set the user name"""

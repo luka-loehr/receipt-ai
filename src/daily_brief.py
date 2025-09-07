@@ -291,7 +291,7 @@ def generate_german_overview(emails, events):
         # We can't import the manager globally here due to ordering; use the existing instance
         return data_manager.ai_service.generate_german_overview(emails, events, user_name=config.user_name)
     except Exception as e:
-        print(f"⚠️  German overview generation error: {e}")
+        print(f"⚠️  Overview generation error: {e}")
         # Minimal fallback
         total_emails = len(emails)
         event_count = len(events)
