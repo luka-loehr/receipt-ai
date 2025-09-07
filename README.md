@@ -22,6 +22,7 @@ pip install -r requirements.txt
 cp env.example .env
 # Place Google OAuth client credentials (Desktop App) JSON into cloud_credentials/ (any .json filename)
 python3 oauth_setup.py
+python3 printer_setup.py  # optional: configure USB thermal printer
 python3 daily_brief.py
 ```
 
@@ -57,6 +58,7 @@ The AI can handle ANY language! Examples: `german`, `spanish`, `french`, `swahil
    - Copy `env.example` to `.env` and adjust values
    - Place Google OAuth client credentials JSON at `cloud_credentials/google_credentials.json`
    - Run OAuth: `python3 oauth_setup.py`
+   - Setup printer (USB): `python3 printer_setup.py`
 
 2. **Daily Brief** (`python3 daily_brief.py`):
    - Fetches emails, calendar, tasks, weather
@@ -101,7 +103,7 @@ receipt-printer/
 ├── src/                  # Core source code
 │   ├── daily_brief.py    # Daily brief generation logic
 │   ├── data_services.py  # Google APIs & weather integration
-│   ├── thermal_printer.py# ESC/POS printer interface
+│   ├── thermal_printer.py# ESC/POS printer interface (reads config from .env)
 │   └── printer_config.py # Printer configuration
 ├── utils/                # Utility scripts
 │   └── escpos_preview.py # Preview ESC/POS files
