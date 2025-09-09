@@ -131,7 +131,7 @@ class ModularDataManager:
         # Fetch all data
         weather, emails, events, tasks, shopping_list = self.fetch_all_data()
         
-        print("\n🤖 Generating AI-powered receipt content...")
+        print("\n🤖 Generating AI-Brief...")
         
         # Generate complete content using AI
         try:
