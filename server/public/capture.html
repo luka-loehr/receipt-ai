@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manual Capture</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; padding: 24px; max-width: 860px; margin: 0 auto; }
+      h1 { margin-top: 0; }
+      textarea { width: 100%; min-height: 140px; }
+      .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+      button { padding: 10px 16px; font-size: 16px; cursor: pointer; }
+      #status { margin-top: 12px; color: #555; }
+      img { max-width: 100%; border: 1px solid #ddd; }
+    </style>
+  </head>
+  <body>
+    <h1>Manuelle Erfassung</h1>
+    <p>Füge Text ein oder lade ein Bild hoch. Es wird eine To‑Do‑Quittung generiert.</p>
+    <form id="form">
+      <div>
+        <label for="text"><strong>Text</strong></label><br />
+        <textarea id="text" name="text" placeholder="Text hier einfügen…"></textarea>
+      </div>
+      <div class="row">
+        <label><strong>Bild</strong> <input type="file" id="image" name="image" accept="image/*" /></label>
+        <button type="submit">Generieren</button>
+        <a href="/">Zurück</a>
+      </div>
+    </form>
+    <div id="status"></div>
+    <div id="imgWrap"></div>
+    <script>
+      const form = document.getElementById('form');
+      const statusEl = document.getElementById('status');
+      const imgWrap = document.getElementById('imgWrap');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        statusEl.textContent = 'Wird generiert…';
+        imgWrap.innerHTML = '';
+        const fd = new FormData();
+        const text = document.getElementById('text').value;
+        const file = document.getElementById('image').files[0];
+        if (text) fd.append('text', text);
+        if (file) fd.append('image', file);
+        try {
+          const res = await fetch('/capture', { method: 'POST', body: fd });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Fehler');
+          const img = document.createElement('img');
+          img.src = data.path;
+          img.alt = 'To-Do Quittung';
+          img.loading = 'eager';
+          imgWrap.appendChild(img);
+          statusEl.textContent = 'Fertig';
+        } catch (e) {
+          statusEl.textContent = 'Fehler: ' + e.message;
+        }
+      });
+    </script>
+  </body>
+</html>
