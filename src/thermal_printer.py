@@ -82,28 +82,61 @@ class ThermalPrinter:
                     out_ep=self.config.out_ep,
                     timeout=self.config.timeout
                 )
-                # Set encoding for Chinese characters
-                self.printer.charset = 'UTF-8'
+                # Xprinter XP-58IIH: Use CP850 (Multilingual) for German umlauts
+                # ESC t 1 = Select codepage 850
+                self.printer._raw(b'\x1b\x74\x01')  # ESC t 1 for CP850
+                try:
+                    self.printer.charcode('CP850')
+                except Exception:
+                    pass
+                try:
+                    self.printer.encoding = 'cp850'
+                except Exception:
+                    pass
             elif self.config.connection_type == 'network':
                 self.printer = printer.Network(
                     host=self.config.host,
                     port=self.config.port,
                     timeout=self.config.timeout
                 )
-                # Set encoding for Chinese characters
-                self.printer.charset = 'UTF-8'
+                # Use CP850 for network printers too
+                self.printer._raw(b'\x1b\x74\x01')  # ESC t 1 for CP850
+                try:
+                    self.printer.charcode('CP850')
+                except Exception:
+                    pass
+                try:
+                    self.printer.encoding = 'cp850'
+                except Exception:
+                    pass
             elif self.config.connection_type == 'serial':
                 self.printer = printer.Serial(
                     devfile=self.config.device_id,
                     baudrate=9600,
                     timeout=self.config.timeout
                 )
-                # Set encoding for Chinese characters
-                self.printer.charset = 'UTF-8'
+                # Serial: use CP850
+                self.printer._raw(b'\x1b\x74\x01')  # ESC t 1 for CP850
+                try:
+                    self.printer.charcode('CP850')
+                except Exception:
+                    pass
+                try:
+                    self.printer.encoding = 'cp850'
+                except Exception:
+                    pass
             elif self.config.connection_type == 'file':
                 self.printer = printer.File(self.config.device_id)
-                # Set encoding for Chinese characters
-                self.printer.charset = 'UTF-8'
+                # File transport: use CP850 consistent with hardware
+                self.printer._raw(b'\x1b\x74\x01')  # ESC t 1 for CP850
+                try:
+                    self.printer.charcode('CP850')
+                except Exception:
+                    pass
+                try:
+                    self.printer.encoding = 'cp850'
+                except Exception:
+                    pass
             else:
                 raise ValueError(f"Unsupported connection type: {self.config.connection_type}")
             
@@ -154,28 +187,28 @@ class ThermalPrinter:
             if receipt_content.task_section and printable_content.printable_tasks:
                 self.printer.text("-" * 32 + "\n")
                 self.printer.set(align='center', font='a', width=1, height=1)
-                self.printer.text(f"✅ {receipt_content.task_section.section_title}\n\n")
+                # Avoid emoji for maximum compatibility
+                self.printer.text(f"{receipt_content.task_section.section_title}\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
                 for i, task in enumerate(printable_content.printable_tasks, 1):
-                    task_title = str(task)
-                    if len(task_title) > 70:
-                        task_title = task_title[:67] + "..."
-                    self.printer.text(f"□ {task_title}\n")
+                    # Prefer display_text if available
+                    task_title = getattr(task, 'display_text', None) or str(task)
+                    # ASCII checkbox for compatibility
+                    self.printer.text(f"[ ] {task_title}\n")
                 self.printer.text("\n")
             
             # AI-generated shopping list section
             if receipt_content.shopping_section and printable_content.printable_shopping:
                 self.printer.text("-" * 32 + "\n")
                 self.printer.set(align='center', font='a', width=1, height=1)
-                self.printer.text(f"🛒 {receipt_content.shopping_section.section_title}\n\n")
+                # Avoid emoji for maximum compatibility
+                self.printer.text(f"{receipt_content.shopping_section.section_title}\n\n")
                 
                 self.printer.set(align='left', font='a', width=1, height=1)
                 for i, item in enumerate(printable_content.printable_shopping, 1):
-                    item_title = str(item)
-                    if len(item_title) > 70:
-                        item_title = item_title[:67] + "..."
-                    self.printer.text(f"□ {item_title}\n")
+                    item_title = getattr(item, 'display_text', None) or str(item)
+                    self.printer.text(f"[ ] {item_title}\n")
                 self.printer.text("\n")
             
             # AI-generated footer

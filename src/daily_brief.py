@@ -281,20 +281,7 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
             if tasks:
                 tasks_text = "\n✅ AUFGABEN\n\n"
                 for i, task in enumerate(tasks, 1):
-                    # Use the same truncation logic as PNG (70 chars max) with smart word handling
-                    task_title = task.title
-                    if len(task_title) > 70:
-                        # Find the last complete word that fits within 70 chars
-                        max_chars = 67  # Leave room for "..."
-                        words = task.title.split()
-                        truncated_title = ""
-                        for word in words:
-                            if len(truncated_title + " " + word) <= max_chars:
-                                truncated_title += (" " if truncated_title else "") + word
-                            else:
-                                break
-                        task_title = truncated_title + "..." if truncated_title else task.title[:67] + "..."
-                    tasks_text += f"{task_title}\n"
+                    tasks_text += f"{task.title}\n"
         except Exception as e:
             print(f"⚠️  Error generating tasks for text: {e}")
     
@@ -304,20 +291,7 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
         try:
             shopping_text = "\n🛒 EINKAUFSLISTE\n\n"
             for i, item in enumerate(data_manager.last_shopping_list, 1):
-                # Use the same truncation logic as tasks
-                item_title = item.title
-                if len(item_title) > 70:
-                    # Find the last complete word that fits within 70 chars
-                    max_chars = 67  # Leave room for "..."
-                    words = item.title.split()
-                    truncated_title = ""
-                    for word in words:
-                        if len(truncated_title + " " + word) <= max_chars:
-                            truncated_title += (" " if truncated_title else "") + word
-                        else:
-                            break
-                    item_title = truncated_title + "..." if truncated_title else item.title[:67] + "..."
-                shopping_text += f"{item_title}\n"
+                shopping_text += f"{item.title}\n"
         except Exception as e:
             print(f"⚠️  Error generating shopping list for text: {e}")
     
@@ -419,14 +393,14 @@ def create_daily_brief(data_manager):
                     checkbox_x = MARGIN + 10 * DPI_SCALE
                     checkbox_size = 12 * DPI_SCALE
                     draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
-                                 outline=FG_COLOR, width=1)
+                                   outline=FG_COLOR, width=1)
                     
-                    # Use pre-formatted task text from printable content
-                    task_text = task.display_text
+                    # Use pre-formatted task text from printable content, fallback to plain
+                    task_text = getattr(task, 'display_text', None) or str(task)
                     
                     # Draw task text
                     draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), task_text, 
-                             fill=FG_COLOR, font=font_tiny)
+                              fill=FG_COLOR, font=font_tiny)
                     
                     y += checkbox_size + 8 * DPI_SCALE
                     
@@ -457,8 +431,8 @@ def create_daily_brief(data_manager):
                 draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
                              outline=FG_COLOR, width=1)
                 
-                # Use pre-formatted item text from printable content
-                item_text = item.display_text
+                # Use pre-formatted item text from printable content, fallback to plain
+                item_text = getattr(item, 'display_text', None) or str(item)
                 
                 # Draw item text
                 draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), item_text, 

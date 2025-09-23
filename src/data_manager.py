@@ -166,20 +166,18 @@ class ModularDataManager:
         # Format tasks for printing
         printable_tasks = []
         for task in tasks:
-            truncated, is_truncated = self._truncate_text(task.title, self.config.paper_width_mm * 2)  # Rough char estimate
             printable_tasks.append(PrintableTask(
-                display_text=truncated,
-                is_truncated=is_truncated,
+                display_text=task.title,
+                is_truncated=False,
                 original_title=task.title
             ))
         
         # Format shopping items for printing
         printable_shopping = []
         for item in shopping_items:
-            truncated, is_truncated = self._truncate_text(item.title, self.config.paper_width_mm * 2)
             printable_shopping.append(PrintableShoppingItem(
-                display_text=truncated,
-                is_truncated=is_truncated,
+                display_text=item.title,
+                is_truncated=False,
                 original_title=item.title
             ))
         
