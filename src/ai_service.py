@@ -6,6 +6,7 @@ Generates ALL receipt content including headers, dates, greetings in any languag
 
 import os
 import datetime
+import json
 from typing import Optional, List
 from openai import OpenAI
 from pydantic import BaseModel
@@ -244,6 +245,58 @@ FOOTER REQUIREMENT:
 - Return a single localized footer sentence in the footer field (footer_text) that states the generation time, e.g., "Generated on Sunday 21st at 17:14" (adapt this phrasing to the target language and locale). Do not include any motivational note or additional text in the footer."""
         
         return final_prompt
+
+    def rewrite_list_items(self, items: List[str], target_language: str) -> List[str]:
+        """Rewrite/translate list items into target_language with corrected grammar and concise phrasing.
+
+        Returns a list of rewritten items in the same order. Falls back to original items on error.
+        """
+        if not items:
+            return []
+
+        # In mock mode, just return originals
+        if self.mock_mode or not getattr(self, 'client', None):
+            return items
+
+        system_prompt = (
+            f"You are a helpful assistant that rewrites short list items in {target_language}. "
+            "For each input item: fix grammar, translate to the target language, keep it concise (≤ 12 words), "
+            "preserve meaning, remove emojis. Return ONLY a JSON array of strings, one per input item, same order."
+        )
+
+        user_payload = {
+            "target_language": target_language,
+            "items": items,
+        }
+
+        try:
+            completion = self.client.chat.completions.create(
+                model=self.config.ai_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}
+                ],
+                temperature=0.2,
+                max_tokens=256,
+            )
+
+            content = completion.choices[0].message.content.strip()
+            # Expect pure JSON array; tolerate code fences
+            if content.startswith("```"):
+                content = content.strip("`\n ")
+                # Remove optional language tag line
+                if "\n" in content:
+                    content = content.split("\n", 1)[1]
+
+            rewritten = json.loads(content)
+            if isinstance(rewritten, list) and all(isinstance(x, str) for x in rewritten):
+                # Ensure length matches, otherwise fallback per-item when possible
+                if len(rewritten) == len(items):
+                    return rewritten
+        except Exception:
+            pass
+
+        return items
     
     def generate_complete_receipt(self, weather: Optional[WeatherData] = None,
                                 emails: List[EmailData] = None,

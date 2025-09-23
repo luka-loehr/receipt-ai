@@ -158,25 +158,42 @@ class ModularDataManager:
     def format_for_printing(self, receipt_content: CompleteReceiptContent, 
                            tasks: List[TaskData] = None, 
                            shopping_items: List[TaskData] = None) -> PrintableContent:
-        """Format content for thermal printer with text truncation"""
+        """Format content for thermal printer. Includes AI rewrite/translation for tasks and shopping items."""
         
         tasks = tasks or []
         shopping_items = shopping_items or self.last_shopping_list
         
-        # Format tasks for printing
+        # Prepare titles for rewrite
+        task_titles = [t.title for t in tasks]
+        shopping_titles = [s.title for s in shopping_items]
+        
+        # AI rewrite into selected language
+        try:
+            rewritten_tasks = self.ai_service.rewrite_list_items(task_titles, self.config.get_language_code()) if task_titles else []
+        except Exception:
+            rewritten_tasks = task_titles
+        
+        try:
+            rewritten_shopping = self.ai_service.rewrite_list_items(shopping_titles, self.config.get_language_code()) if shopping_titles else []
+        except Exception:
+            rewritten_shopping = shopping_titles
+        
+        # Format tasks for printing with rewritten text
         printable_tasks = []
-        for task in tasks:
+        for idx, task in enumerate(tasks):
+            display = rewritten_tasks[idx] if idx < len(rewritten_tasks) else task.title
             printable_tasks.append(PrintableTask(
-                display_text=task.title,
+                display_text=display,
                 is_truncated=False,
                 original_title=task.title
             ))
         
-        # Format shopping items for printing
+        # Format shopping items for printing with rewritten text
         printable_shopping = []
-        for item in shopping_items:
+        for idx, item in enumerate(shopping_items):
+            display = rewritten_shopping[idx] if idx < len(rewritten_shopping) else item.title
             printable_shopping.append(PrintableShoppingItem(
-                display_text=item.title,
+                display_text=display,
                 is_truncated=False,
                 original_title=item.title
             ))
