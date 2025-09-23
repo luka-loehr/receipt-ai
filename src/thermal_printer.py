@@ -211,12 +211,7 @@ class ThermalPrinter:
                     self.printer.text(f"[ ] {item_title}\n")
                 self.printer.text("\n")
             
-            # AI-generated footer
-            self.printer.text("-" * 32 + "\n")
-            self.printer.set(align='center', font='a', width=1, height=1)
-            self.printer.text(f"{receipt_content.footer.footer_text}\n")
-            
-            # Final separator
+            # Final separator (footer removed)
             self.printer.text("=" * 32 + "\n")
             
             # Cut paper
