@@ -80,113 +80,115 @@ class EnhancedAIService:
     
     def _create_system_prompt(self, context: AIContext) -> str:
         """Create comprehensive system prompt for receipt generation"""
-        
+
         return f"""ROLE
-You create receipt-style daily briefs. Output MUST be JSON matching the schema below. Return exactly and only the keys in the schema (no extras). Keep property names and casing exactly as shown. Write EVERYTHING in {context.language}.
+You generate daily receipt-style briefs as a JSON object for {context.user_name}. Output MUST be valid JSON matching the schema below—no extra fields or text.
 
-STYLE
-Concise, warm, helpful; address {context.user_name}. Use {context.timezone} for times and {context.language} locale for dates/phrasing. Be a smart filter (synthesize, don’t list). Connect weather↔activities and time↔priorities. In summary.brief write flowing prose (no bullet points). Use plain ASCII only: no emojis, no special symbols (e.g., no degree sign). Write temperatures as "13 C".
+[ASCII ONLY]
+- Use only plain ASCII: no emojis, no accented letters (e.g., ü, é, ñ), no degree symbol, no special symbols. Write temperatures as "13 C".
 
-TIME LOGIC
-Use context.time_of_day:
-- Morning: plan & priorities
-- Afternoon: progress & what’s left
-- Evening: wrap-up & tomorrow
-- Night: reflection & rest
+[STYLE]
+- Tone: warm, helpful, a little more detailed and narrative. Address {context.user_name} directly.
+- Write in {context.language} with {context.timezone} for time, and dates/phrasing in {context.language} style.
+- Synthesize information—connect weather, tasks, and upcoming calendar events.
+- In `summary.brief`, write a longer, flowing paragraph: up to 6 full sentences. Focus on tasks, upcoming events, and weather.
+  - In the **morning**, describe what the weather will be like today and how it might affect plans.
+  - In the **evening or night**, mention how the weather was today and what is expected for tomorrow.
+  - Mention upcoming calendar events (within 2 days) with detail, not just numbers.
+  - For tasks, discuss what's most important or urgent, integrating naturally into the narrative.
+  - Avoid robotic or repetitive lists.
+  - Mention counts/numbers naturally. Briefly acknowledge inbox activity (e.g., number of new emails and, if helpful, 1–2 subjects) woven into the narrative.
 
-LENGTH HINTS (not strict, prefer brevity)
-greeting ≤ 7 words; title ≤ 10 words; summary.brief ≤ 3 sentences.
+[TIME-OF-DAY LOGIC]
+- Use `context.time_of_day`:
+  - "morning": priorities and plans for today, expected weather, and events
+  - "afternoon": progress made, what remains, tasks/events, and current weather
+  - "evening"/"night": summary of day, how weather was, events completed, outlook for tomorrow
 
-RESPONSE (ALL fields required. Strings use ""; arrays use []; integers use a number)
+[RESPONSE LENGTH HINTS]
+- greeting: ≤7 words
+- title: ≤10 words
+- summary.brief: up to 6 sentences
+
+[RESPONSE SCHEMA]
+Return only:
 {{
   "header": {{
-    "greeting": "<personalized greeting in context.language>",
-    "title": "<short contextual subtitle in context.language>",
-    "date_formatted": "<localized long date>"
+    "greeting": "",
+    "title": "",
+    "date_formatted": ""
   }},
   "summary": {{
-    "brief": "<short flowing paragraph that smart-filters context; mention counts naturally>"
+    "brief": ""
   }},
   "task_section": {{
-    "section_title": "<localized title for tasks>"
+    "section_title": ""
   }},
   "shopping_section": {{
-    "section_title": "<localized title for shopping>"
+    "section_title": ""
   }},
   "footer": {{
-    "footer_text": "<single localized sentence stating generation time only>"
+    "footer_text": ""
   }}
 }}
 
-NOTES
-- Prefer what matters now (based on context.time_of_day). If weather/tasks/events are missing, leave respective strings "" and arrays [].
-- Do not return additional keys beyond the schema.
-- Keep every string in {context.language}.
-- Avoid symbols such as the degree sign. Always use "C" without the degree symbol."""
+If context data is missing, use "" for strings or [] for arrays."""
 
     def _create_user_prompt(self, context: AIContext) -> str:
         """Create detailed user prompt with all context data"""
-        
-        # Format current time info
-        time_info = f"""
-CURRENT TIME CONTEXT:
-- Current time: {context.current_time.strftime('%H:%M')} ({context.timezone})
-- Day: {context.current_time.strftime('%A')}
-- Date: {context.current_time.strftime('%Y-%m-%d')}
-- Time period: {context.time_of_day}
-- Weekend: {context.is_weekend}
-"""
-        
-        # Format weather info
-        weather_info = ""
-        if context.weather:
-            weather_info = f"""
-WEATHER DATA:
+
+        # Get language name for AI prompts - just use the string directly
+        language_name = context.language
+
+        final_prompt = f"""Generate a personalized daily briefing for {context.user_name} in {language_name}, using the context below.
+
+--- TIME CONTEXT ---
+Current time: {context.current_time.strftime('%H:%M')} ({context.timezone})
+Day: {context.current_time.strftime('%A')}
+Date: {context.current_time.strftime('%Y-%m-%d')}
+Time period: {context.time_of_day}
+Weekend: {context.is_weekend}
+
+--- WEATHER DATA ---
 - Current: {context.weather.temperature}, {context.weather.condition}
 - Today's range: {context.weather.low} to {context.weather.high}
 - Feels like: {context.weather.feels_like}
 - Humidity: {context.weather.humidity}
 - Wind: {context.weather.wind_speed}
 - History: {context.weather.history}
+- Tomorrow forecast: {context.weather.tomorrow_forecast}
+
+--- EMAIL OVERVIEW (10 latest) ---
 """
-        
-        # Format email info
-        email_info = f"""
-EMAIL OVERVIEW ({len(context.emails)} total):"""
-        for i, email in enumerate(context.emails[:5]):  # Top 5 emails
-            priority_marker = "⚠️ IMPORTANT" if email.is_important else ""
-            email_info += f"""
-- From: {email.sender} | Subject: {email.subject} | Time: {email.time} {priority_marker}"""
-        
-        # Format events info
-        events_info = f"""
-CALENDAR EVENTS ({len(context.events)} total):"""
+        for email in context.emails[:10]:
+            final_prompt += f"- From: {email.sender} | Subject: {email.subject} | Time: {email.time}\n"
+
+        final_prompt += f"""
+--- CALENDAR EVENTS ({len(context.events)} total) ---
+"""
         today_events = [e for e in context.events if e.start_date == context.current_time.strftime('%Y-%m-%d')]
         upcoming_events = [e for e in context.events if e.start_date > context.current_time.strftime('%Y-%m-%d')]
-        
+
         if today_events:
-            events_info += f"""
-Today's events ({len(today_events)}):"""
+            final_prompt += f"Today's events ({len(today_events)}):\n"
             for event in today_events:
-                events_info += f"""
-- {event.title} at {event.start_time} | {event.location}"""
-        
+                final_prompt += f"- {event.title} at {event.start_time} | {event.location}\n"
+
         if upcoming_events:
-            events_info += f"""
-Upcoming events ({len(upcoming_events)}):"""
+            final_prompt += f"Upcoming events ({len(upcoming_events)}):\n"
             for event in upcoming_events[:3]:  # Next 3 events
-                events_info += f"""
-- {event.title} on {event.start_date} at {event.start_time}"""
-        
+                final_prompt += f"- {event.title} on {event.start_date} at {event.start_time}\n"
+
         # Format tasks info
-        tasks_info = f"""
-TASKS OVERVIEW ({len(context.tasks)} total):"""
+        final_prompt += f"""
+--- TASKS OVERVIEW ({len(context.tasks)} total) ---
+"""
         if context.tasks:
             # Separate by priority and due dates
             high_priority = [t for t in context.tasks if t.priority == "high"]
             overdue = []
             due_soon = []
-            
+
             for task in context.tasks:
                 if task.due_date:
                     try:
@@ -198,53 +200,28 @@ TASKS OVERVIEW ({len(context.tasks)} total):"""
                             due_soon.append(task)
                     except:
                         pass
-            
-            if overdue:
-                tasks_info += f"""
-⚠️ OVERDUE ({len(overdue)}): {', '.join([t.title[:30] for t in overdue[:3]])}"""
-            if due_soon:
-                tasks_info += f"""
-🔥 DUE SOON ({len(due_soon)}): {', '.join([t.title[:30] for t in due_soon[:3]])}"""
-            if high_priority:
-                tasks_info += f"""
-❗ HIGH PRIORITY ({len(high_priority)}): {', '.join([t.title[:30] for t in high_priority[:3]])}"""
-        
-        # Format shopping info
-        shopping_info = f"""
-SHOPPING LIST ({len(context.shopping_items)} items):"""
-        if context.shopping_items:
-            shopping_info += f"""
-Items: {', '.join([item.title[:20] for item in context.shopping_items[:8]])}"""
-        
-        # Get language name for AI prompts - just use the string directly
-        language_name = context.language
-        
-        final_prompt = f"""Generate a complete personalized daily briefing for {context.user_name} in {language_name}.
 
-{time_info}
-{weather_info}
-{email_info}
-{events_info}  
-{tasks_info}
-{shopping_info}
+            if overdue:
+                final_prompt += f"OVERDUE ({len(overdue)}): {', '.join([t.title[:30] for t in overdue[:3]])}\n"
+            if due_soon:
+                final_prompt += f"DUE SOON ({len(due_soon)}): {', '.join([t.title[:30] for t in due_soon[:3]])}\n"
+            if high_priority:
+                final_prompt += f"HIGH PRIORITY ({len(high_priority)}): {', '.join([t.title[:30] for t in high_priority[:3]])}\n"
+
+        final_prompt += f"""
+--- SHOPPING LIST ({len(context.shopping_items)} items) ---
+Items: {', '.join([item.title[:20] for item in context.shopping_items[:8]])}
 
 GENERATION REQUIREMENTS:
-- Create appropriate greeting for {context.time_of_day} in {language_name}
-- Format date in beautiful {language_name} cultural style
-- Generate section titles in {language_name}
-- Write main brief analyzing the context intelligently
-- Focus on what's most important for {context.time_of_day}
-- Be culturally appropriate for {language_name}
-- Reference quantities naturally ("you have X tasks to tackle")
-- Connect related information (weather + activities, time + priorities)
+- Write a detailed summary.brief, up to 6 sentences, connecting weather, tasks, calendar events, and briefly acknowledging inbox activity (mention the number of new emails and optionally 1–2 subject highlights if useful).
+- Morning: Focus on today's weather and plans.
+- Evening/night: Reflect on today's weather, completed tasks, and mention tomorrow's forecast/events.
+- Always use only the fields in the schema.
+- No emojis, no degree sign, no special symbols, ASCII only.
+- If any data is missing, use "" for strings, [] for arrays.
 
-NOTE: You can handle ANY language! If {language_name} is not a common language, generate content in that language using your knowledge of world languages.
+⚠️ Output must be valid JSON, matching the schema exactly."""
 
-Remember: You are creating a smart, personalized daily assistant - not just listing data!
-
-FOOTER REQUIREMENT:
-- Return a single localized footer sentence in the footer field (footer_text) but avoid any non-ASCII symbols (e.g., no degree sign)."""
-        
         return final_prompt
 
     def rewrite_list_items(self, items: List[str], target_language: str) -> List[str]:

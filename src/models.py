@@ -21,6 +21,7 @@ class WeatherData(BaseModel):
     feels_like: str = Field(..., description="Feels like temperature")
     icon: str = Field(..., description="Weather icon/emoji")
     history: str = Field(default="", description="Weather history for the day")
+    tomorrow_forecast: str = Field(default="", description="Tomorrow's weather forecast")
 
 class EmailData(BaseModel):
     """Email information structure"""

@@ -109,14 +109,23 @@ class WeatherService:
             # Extract current weather
             current = data['current']
             daily = data['daily'][0]  # Today's forecast
-            
+
             # Get weather icon
             weather_icon = current['weather'][0]['icon']
             icon_emoji = self._get_weather_icon(weather_icon)
-            
+
             # Create weather history summary (ASCII only, no degree symbol)
             weather_history = f"Min: {round(daily['temp']['min'])} C, Max: {round(daily['temp']['max'])} C"
-            
+
+            # Get tomorrow's forecast if available
+            tomorrow_forecast = ""
+            if len(data['daily']) > 1:
+                tomorrow = data['daily'][1]
+                tomorrow_temp_min = round(tomorrow['temp']['min'])
+                tomorrow_temp_max = round(tomorrow['temp']['max'])
+                tomorrow_condition = tomorrow['weather'][0]['description'].title()
+                tomorrow_forecast = f"{tomorrow_condition}, {tomorrow_temp_min}-{tomorrow_temp_max} C"
+
             return WeatherData(
                 temperature=f"{round(current['temp'])} C",
                 condition=current['weather'][0]['description'].title(),
@@ -126,7 +135,8 @@ class WeatherService:
                 wind_speed=f"{round(current['wind_speed'] * 3.6, 1)} km/h",  # Convert m/s to km/h
                 feels_like=f"{round(current['feels_like'])} C",
                 icon=icon_emoji,
-                history=weather_history
+                history=weather_history,
+                tomorrow_forecast=tomorrow_forecast
             )
             
         except Exception as e:
@@ -144,7 +154,8 @@ class WeatherService:
             wind_speed="12.0 km/h",
             feels_like="19 C",
             icon="[CLOUD]",
-            history="Min: 14 C, Max: 22 C"
+            history="Min: 14 C, Max: 22 C",
+            tomorrow_forecast="Sunny, 16-24 C"
         )
 
 
