@@ -152,6 +152,51 @@ class ThermalPrinter:
     def is_connected(self) -> bool:
         """Check if printer is connected"""
         return self.printer is not None
+
+    def _wrap_text(self, text: str, max_chars: int = 32) -> str:
+        """Wrap text on word boundaries for ESC/POS printers.
+
+        Ensures lines do not break mid-word. If a single word exceeds the
+        max width, it will be hard-split to avoid overflow.
+        """
+        if not text:
+            return ""
+
+        lines: list[str] = []
+        for paragraph in text.split("\n"):
+            if not paragraph:
+                lines.append("")
+                continue
+
+            words = paragraph.split()
+            current = ""
+            for word in words:
+                # If the word itself is longer than max width, split it hard
+                if len(word) > max_chars:
+                    # flush current line first
+                    if current:
+                        lines.append(current)
+                        current = ""
+                    start = 0
+                    while start < len(word):
+                        lines.append(word[start:start + max_chars])
+                        start += max_chars
+                    continue
+
+                # Try to add word to current line
+                tentative = f"{current} {word}".strip()
+                if len(tentative) <= max_chars:
+                    current = tentative
+                else:
+                    # push current line and start new
+                    if current:
+                        lines.append(current)
+                    current = word
+
+            if current:
+                lines.append(current)
+
+        return "\n".join(lines)
     
     def print_daily_brief(self, receipt_content, printable_content):
         """Print daily brief using AI-generated content with proper UTF-8 encoding"""
@@ -179,9 +224,10 @@ class ThermalPrinter:
             # Separator
             self.printer.text("=" * 32 + "\n\n")
             
-            # AI-generated main brief content
+            # AI-generated main brief content (wrap to avoid mid-word breaks)
             self.printer.set(align='left', font='a', width=1, height=1)
-            self.printer.text(f"{receipt_content.summary.brief}\n\n")
+            wrapped_brief = self._wrap_text(str(receipt_content.summary.brief), 32)
+            self.printer.text(f"{wrapped_brief}\n\n")
             
             # AI-generated tasks section
             if receipt_content.task_section and printable_content.printable_tasks:
@@ -195,7 +241,8 @@ class ThermalPrinter:
                     # Prefer display_text if available
                     task_title = getattr(task, 'display_text', None) or str(task)
                     # ASCII checkbox for compatibility
-                    self.printer.text(f"[ ] {task_title}\n")
+                    wrapped_task = self._wrap_text(f"[ ] {task_title}", 32)
+                    self.printer.text(f"{wrapped_task}\n")
                 self.printer.text("\n")
             
             # AI-generated shopping list section
@@ -208,7 +255,8 @@ class ThermalPrinter:
                 self.printer.set(align='left', font='a', width=1, height=1)
                 for i, item in enumerate(printable_content.printable_shopping, 1):
                     item_title = getattr(item, 'display_text', None) or str(item)
-                    self.printer.text(f"[ ] {item_title}\n")
+                    wrapped_item = self._wrap_text(f"[ ] {item_title}", 32)
+                    self.printer.text(f"{wrapped_item}\n")
                 self.printer.text("\n")
             
             # Final separator (footer removed)
