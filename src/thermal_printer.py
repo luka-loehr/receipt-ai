@@ -107,7 +107,7 @@ class ThermalPrinter:
             else:
                 raise ValueError(f"Unsupported connection type: {self.config.connection_type}")
             
-            print(f"✅ Connected to {self.config.connection_type} printer")
+            # Connected
             
         except ESCPOSError as e:
             print(f"❌ Printer connection failed: {e}")
@@ -310,7 +310,6 @@ class ThermalPrinter:
             try:
                 self.printer.close()
                 self.printer = None
-                print("✅ Printer disconnected")
             except Exception as e:
                 print(f"⚠️  Error disconnecting: {e}")
 

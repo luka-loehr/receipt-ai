@@ -514,7 +514,7 @@ def main():
     brief_img.save(config.output_png_file)
     
     # Print to thermal printer
-    print("\n🖨️  Printing to thermal printer...")
+    print("\n🖨️  Printing daily brief...")
     
     # Use the cached raw data instead of fetching again
     weather, emails, events, raw_tasks, raw_shopping = raw_data
@@ -525,7 +525,30 @@ def main():
         shopping_items=raw_shopping  # Pass actual shopping data
     )
     
-    print_to_thermal_printer(receipt_content, printable_content)
+    success = print_to_thermal_printer(receipt_content, printable_content)
+    
+    # If using file-based printer, optionally auto-submit ESC/POS to CUPS
+    try:
+        cups_printer = os.getenv('CUPS_PRINTER')
+        printer_type = os.getenv('THERMAL_PRINTER_TYPE', 'file_test').lower()
+        escpos_path = os.getenv('PRINTER_FILE_PATH', config.output_escpos_file)
+        if printer_type in ('file', 'file_test') and cups_printer and escpos_path and os.path.exists(escpos_path):
+            # Submit to CUPS for physical print
+            import subprocess
+            try:
+                cp = subprocess.run(['lp', '-d', cups_printer, '-o', 'raw', escpos_path], check=True, capture_output=True, text=True)
+                msg = cp.stdout.strip() or cp.stderr.strip()
+                # Print as single concise line
+                if msg:
+                    print(f"✅ Printed (CUPS {msg})")
+                else:
+                    print("✅ Printed")
+            except subprocess.CalledProcessError as e:
+                err = e.stderr.strip() if hasattr(e, 'stderr') and e.stderr else str(e)
+                print(f"❌ Print failed: {err}")
+    except Exception as e:
+        # Non-fatal; keep minimal output
+        pass
     
     # Auto-open image (controlled by PREVIEW_PNG)
     preview_png = os.getenv('PREVIEW_PNG', 'true').lower() == 'true'
