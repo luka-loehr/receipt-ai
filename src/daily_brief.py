@@ -304,8 +304,7 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
 
 {ai_brief}
 
-{tasks_text}{shopping_text}
-{brief_response.footer.footer_text}"""
+{tasks_text}{shopping_text}"""
     
     # Save text file
     with open(config.output_txt_file, 'w', encoding='utf-8') as f:
@@ -452,13 +451,7 @@ def create_daily_brief(data_manager):
     y += draw_decorative_border(draw, y)
     y += 15 * DPI_SCALE
     
-    # AI-generated footer
-    y += 8 * DPI_SCALE
-    
-    # AI-generated single-line footer text
-    footer_text = receipt_content.footer.footer_text
-    y += draw_centered_text(draw, y, footer_text, font_tiny, GRAY_COLOR)
-    
+    # Bottom margin only (footer removed)
     y += MARGIN
     
     # Crop to content
