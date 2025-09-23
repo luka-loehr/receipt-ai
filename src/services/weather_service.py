@@ -114,17 +114,17 @@ class WeatherService:
             weather_icon = current['weather'][0]['icon']
             icon_emoji = self._get_weather_icon(weather_icon)
             
-            # Create weather history summary
-            weather_history = f"Min: {round(daily['temp']['min'])}°C, Max: {round(daily['temp']['max'])}°C"
+            # Create weather history summary (ASCII only, no degree symbol)
+            weather_history = f"Min: {round(daily['temp']['min'])} C, Max: {round(daily['temp']['max'])} C"
             
             return WeatherData(
-                temperature=f"{round(current['temp'])}°C",
+                temperature=f"{round(current['temp'])} C",
                 condition=current['weather'][0]['description'].title(),
-                high=f"{round(daily['temp']['max'])}°C",
-                low=f"{round(daily['temp']['min'])}°C",
+                high=f"{round(daily['temp']['max'])} C",
+                low=f"{round(daily['temp']['min'])} C",
                 humidity=f"{current['humidity']}%",
                 wind_speed=f"{round(current['wind_speed'] * 3.6, 1)} km/h",  # Convert m/s to km/h
-                feels_like=f"{round(current['feels_like'])}°C",
+                feels_like=f"{round(current['feels_like'])} C",
                 icon=icon_emoji,
                 history=weather_history
             )
@@ -136,15 +136,15 @@ class WeatherService:
     def _get_mock_weather(self) -> WeatherData:
         """Return mock weather data when API is unavailable"""
         return WeatherData(
-            temperature="18°C",
+            temperature="18 C",
             condition="Partly Cloudy",
-            high="22°C",
-            low="14°C",
+            high="22 C",
+            low="14 C",
             humidity="65%",
             wind_speed="12.0 km/h",
-            feels_like="19°C",
+            feels_like="19 C",
             icon="[CLOUD]",
-            history="Min: 14°C, Max: 22°C"
+            history="Min: 14 C, Max: 22 C"
         )
 
 

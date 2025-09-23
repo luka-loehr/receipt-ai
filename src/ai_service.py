@@ -85,7 +85,7 @@ class EnhancedAIService:
 You create receipt-style daily briefs. Output MUST be JSON matching the schema below. Return exactly and only the keys in the schema (no extras). Keep property names and casing exactly as shown. Write EVERYTHING in {context.language}.
 
 STYLE
-Concise, warm, helpful; address {context.user_name}. Use {context.timezone} for times and {context.language} locale for dates/phrasing. Be a smart filter (synthesize, don’t list). Connect weather↔activities and time↔priorities. In summary.brief write flowing prose (no bullet points).
+Concise, warm, helpful; address {context.user_name}. Use {context.timezone} for times and {context.language} locale for dates/phrasing. Be a smart filter (synthesize, don’t list). Connect weather↔activities and time↔priorities. In summary.brief write flowing prose (no bullet points). Use plain ASCII only: no emojis, no special symbols (e.g., no degree sign). Write temperatures as "13 C".
 
 TIME LOGIC
 Use context.time_of_day:
@@ -121,7 +121,8 @@ RESPONSE (ALL fields required. Strings use ""; arrays use []; integers use a num
 NOTES
 - Prefer what matters now (based on context.time_of_day). If weather/tasks/events are missing, leave respective strings "" and arrays [].
 - Do not return additional keys beyond the schema.
-- Keep every string in {context.language}."""
+- Keep every string in {context.language}.
+- Avoid symbols such as the degree sign. Always use "C" without the degree symbol."""
 
     def _create_user_prompt(self, context: AIContext) -> str:
         """Create detailed user prompt with all context data"""
@@ -242,7 +243,7 @@ NOTE: You can handle ANY language! If {language_name} is not a common language, 
 Remember: You are creating a smart, personalized daily assistant - not just listing data!
 
 FOOTER REQUIREMENT:
-- Return a single localized footer sentence in the footer field (footer_text) that states the generation time, e.g., "Generated on Sunday 21st at 17:14" (adapt this phrasing to the target language and locale). Do not include any motivational note or additional text in the footer."""
+- Return a single localized footer sentence in the footer field (footer_text) but avoid any non-ASCII symbols (e.g., no degree sign)."""
         
         return final_prompt
 
