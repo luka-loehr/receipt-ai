@@ -280,8 +280,13 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
             tasks = data_manager.task_service.get_tasks()
             if tasks:
                 tasks_text = "\n✅ AUFGABEN\n\n"
-                for i, task in enumerate(tasks, 1):
-                    tasks_text += f"{task.title}\n"
+                # AI rewrite/translate task titles via data_manager
+                try:
+                    rewritten = data_manager.ai_service.rewrite_list_items([t.title for t in tasks], data_manager.config.get_language_code())
+                except Exception:
+                    rewritten = [t.title for t in tasks]
+                for i, text in enumerate(rewritten, 1):
+                    tasks_text += f"{text}\n"
         except Exception as e:
             print(f"⚠️  Error generating tasks for text: {e}")
     
@@ -290,8 +295,13 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
     if data_manager and hasattr(data_manager, 'last_shopping_list') and data_manager.last_shopping_list:
         try:
             shopping_text = "\n🛒 EINKAUFSLISTE\n\n"
-            for i, item in enumerate(data_manager.last_shopping_list, 1):
-                shopping_text += f"{item.title}\n"
+            # AI rewrite/translate shopping items via data_manager
+            try:
+                rewritten_items = data_manager.ai_service.rewrite_list_items([i.title for i in data_manager.last_shopping_list], data_manager.config.get_language_code())
+            except Exception:
+                rewritten_items = [i.title for i in data_manager.last_shopping_list]
+            for i, text in enumerate(rewritten_items, 1):
+                shopping_text += f"{text}\n"
         except Exception as e:
             print(f"⚠️  Error generating shopping list for text: {e}")
     
