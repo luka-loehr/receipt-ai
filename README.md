@@ -61,6 +61,9 @@ cp env.example .env
 | `WEATHER_LOCATION`   | Weather city & country                 | `Karlsruhe,DE`    |
 | `THERMAL_PRINTER_TYPE`| `usb`, `network`, or `file_test`       | `file_test`       |
 | `PREVIEW_PNG`        | Auto-open preview                      | `true`            |
+| `PRINTER_CONSOLE_HOST`| Printer Console bind host               | `127.0.0.1`       |
+| `PRINTER_CONSOLE_PORT`| Printer Console port (uncommon)         | `8765`            |
+| `PRINTER_CONSOLE_DEBUG`| Enable Flask debug mode                | `false`           |
 
 ---
 
@@ -100,6 +103,32 @@ receipt-printer/
 
 ---
 
+## 🖨️ Print Custom Text
+
+Use the helper script to print arbitrary text.
+
+Interactive (paste a single line, then press Enter):
+
+```bash
+python3 scripts/print_text.py
+```
+
+Pass text as CLI arguments:
+
+```bash
+python3 scripts/print_text.py "Hello world"
+```
+
+Pipe multi-line input:
+
+```bash
+printf "Line 1\nLine 2\n" | python3 scripts/print_text.py
+```
+
+Note (file transport → CUPS): If your `.env` uses a file-based printer (`THERMAL_PRINTER_TYPE=file` or `file_test`), the script writes ESC/POS to `PRINTER_FILE_PATH` and, when `CUPS_PRINTER` is set, auto-forwards it to CUPS using `lp -o raw` (same behavior as the daily brief).
+
+---
+
 ## 🤝 Contributing
 
 ```bash
@@ -121,3 +150,54 @@ MIT License — see [`LICENSE`](LICENSE) file.
 
 - [GitHub Issues](https://github.com/luka-loehr/receipt-printer/issues)
 - [Discussions](https://github.com/luka-loehr/receipt-printer/discussions)
+
+---
+
+## 🖥️ Printer Console (Always-On UI)
+
+Run a local UI to trigger the daily brief and quick text prints.
+
+Start the console:
+
+```bash
+python3 -m src.server_app
+```
+
+Environment variables:
+
+- `PRINTER_CONSOLE_HOST`: default `127.0.0.1`
+- `PRINTER_CONSOLE_PORT`: default `8765` (uncommon to avoid conflicts)
+- `PRINTER_CONSOLE_DEBUG`: `true/false`
+
+Then open `http://127.0.0.1:8765/` (or your configured host/port).
+
+### Autostart on boot (systemd user service)
+
+You can create a systemd user service to start the console on login/boot. Example unit:
+
+```ini
+[Unit]
+Description=Receipt Printer Console
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+Environment=PRINTER_CONSOLE_HOST=127.0.0.1
+Environment=PRINTER_CONSOLE_PORT=8765
+WorkingDirectory=%h/Documents/receipt-printer
+ExecStart=%h/Documents/receipt-printer/venv/bin/python -m src.server_app
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+Save to `~/.config/systemd/user/receipt-printer-console.service`, then run:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable receipt-printer-console.service
+systemctl --user start receipt-printer-console.service
+systemctl --user status receipt-printer-console.service
+```
