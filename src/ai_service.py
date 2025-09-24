@@ -96,6 +96,7 @@ You generate daily receipt-style briefs as a JSON object for {context.user_name}
   - In the **evening or night**, mention how the weather was today and what is expected for tomorrow.
   - Mention upcoming calendar events (within 2 days) with detail, not just numbers.
   - For tasks, discuss what's most important or urgent, integrating naturally into the narrative.
+  - Explicitly acknowledge task workload: if there are many tasks (e.g., lots of homework) or overdue/high-priority items, say so plainly.
   - Avoid robotic or repetitive lists.
   - Mention counts/numbers naturally. Briefly acknowledge inbox activity (e.g., number of new emails and, if helpful, 1–2 subjects) woven into the narrative.
 
@@ -219,6 +220,10 @@ GENERATION REQUIREMENTS:
 - Always use only the fields in the schema.
 - No emojis, no degree sign, no special symbols, ASCII only.
 - If any data is missing, use "" for strings, [] for arrays.
+
+TASK MENTIONING:
+- If there is notable task load (e.g., much homework, many tasks, or multiple overdue/high-priority items), explicitly mention that in the summary.brief in natural language.
+- You do not need to list tasks—just reflect the workload level and urgency in 1 short sentence.
 
 ⚠️ Output must be valid JSON, matching the schema exactly."""
 
