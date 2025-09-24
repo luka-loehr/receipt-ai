@@ -349,6 +349,27 @@ class ThermalPrinter:
             print(f"❌ Unexpected printing error: {e}")
             return False
     
+    def print_plain_text(self, text: str, align: str = 'left') -> bool:
+        """Print plain text with word-boundary wrapping and cut at end."""
+        if not self.is_connected():
+            print("❌ Printer not connected")
+            return False
+        try:
+            self.printer.set(align=align, font='a', width=1, height=1)
+            wrapped = self._wrap_text(text, 32)
+            # Ensure newline termination
+            if not wrapped.endswith("\n"):
+                wrapped += "\n"
+            self.printer.text(wrapped)
+            self.printer.cut()
+            return True
+        except ESCPOSError as e:
+            print(f"❌ Printing error: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Unexpected printing error: {e}")
+            return False
+
     def test_print(self):
         """Print a test page"""
         if not self.is_connected():
