@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import threading
 import subprocess
 from typing import Optional
@@ -15,10 +16,13 @@ app = Flask(__name__)
 def run_daily_brief_blocking() -> tuple[bool, str]:
     """Run the daily brief script synchronously in a subprocess."""
     try:
-        cp = subprocess.run([
-            os.getenv('PYTHON_BIN', 'python3'),
-            os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'daily_brief.py'))
-        ], capture_output=True, text=True)
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        cp = subprocess.run(
+            [sys.executable, os.path.join(project_root, 'daily_brief.py')],
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+        )
         success = cp.returncode == 0
         output = (cp.stdout or '') + (cp.stderr or '')
         return success, output
@@ -29,11 +33,13 @@ def run_daily_brief_blocking() -> tuple[bool, str]:
 def print_text_blocking(text: str) -> tuple[bool, str]:
     """Run the print_text script synchronously in a subprocess."""
     try:
-        cp = subprocess.run([
-            os.getenv('PYTHON_BIN', 'python3'),
-            os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts', 'print_text.py')),
-            text
-        ], capture_output=True, text=True)
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        cp = subprocess.run(
+            [sys.executable, os.path.join(project_root, 'scripts', 'print_text.py'), text],
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+        )
         success = cp.returncode == 0
         output = (cp.stdout or '') + (cp.stderr or '')
         return success, output
@@ -99,7 +105,8 @@ INDEX_HTML = """
       el.textContent = text || '';
     }
   </script>
-  <link rel="icon" href="data:," />
+  <!-- Favicon: printer emoji as SVG data URI -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' ry='12' fill='%231226ff'/%3E%3Ctext x='32' y='46' font-size='36' text-anchor='middle'%3E%F0%9F%96%A8%EF%B8%8F%3C/text%3E%3C/svg%3E" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
