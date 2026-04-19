@@ -26,7 +26,6 @@ class AppConfig(BaseModel):
     allow_mock_data: bool = Field(default=False, description="Allow demo/mock data when integrations are unavailable")
     
     # Weather Settings
-    openweather_api_key: Optional[str] = Field(default=None, description="OpenWeatherMap API key")
     weather_location: str = Field(default="Karlsruhe,DE", description="Weather location")
     
     # Email Settings
@@ -63,7 +62,6 @@ class AppConfig(BaseModel):
             max_tokens=int(os.getenv('MAX_OUTPUT_TOKENS', '800')),
             allow_mock_data=os.getenv('ALLOW_MOCK_DATA', 'false').lower() == 'true',
             
-            openweather_api_key=os.getenv('OPENWEATHER_API_KEY'),
             weather_location=os.getenv('WEATHER_LOCATION', 'Karlsruhe,DE'),
             
             max_emails_to_process=int(os.getenv('MAX_EMAILS_TO_PROCESS', '10')),

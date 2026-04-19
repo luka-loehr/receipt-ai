@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Weather Service Module
-Handles weather data fetching from OpenWeatherMap One Call API 3.0
+Handles weather data fetching from Open-Meteo APIs
 """
 
 import requests
@@ -9,132 +9,118 @@ from typing import Optional, Tuple
 from ..models import WeatherData
 from ..config import AppConfig
 
+WEATHER_CODE_MAP = {
+    0: ("Clear Sky", "[SUN]", "[MOON]"),
+    1: ("Mainly Clear", "[SUN]", "[MOON]"),
+    2: ("Partly Cloudy", "[SUN_CLOUD]", "[CLOUD]"),
+    3: ("Overcast", "[CLOUD]", "[CLOUD]"),
+    45: ("Fog", "[FOG]", "[FOG]"),
+    48: ("Rime Fog", "[FOG]", "[FOG]"),
+    51: ("Light Drizzle", "[RAIN]", "[RAIN]"),
+    53: ("Drizzle", "[RAIN]", "[RAIN]"),
+    55: ("Dense Drizzle", "[RAIN]", "[RAIN]"),
+    56: ("Freezing Drizzle", "[SNOW]", "[SNOW]"),
+    57: ("Dense Freezing Drizzle", "[SNOW]", "[SNOW]"),
+    61: ("Light Rain", "[RAIN]", "[RAIN]"),
+    63: ("Rain", "[RAIN]", "[RAIN]"),
+    65: ("Heavy Rain", "[RAIN]", "[RAIN]"),
+    66: ("Light Freezing Rain", "[SNOW]", "[SNOW]"),
+    67: ("Heavy Freezing Rain", "[SNOW]", "[SNOW]"),
+    71: ("Light Snow", "[SNOW]", "[SNOW]"),
+    73: ("Snow", "[SNOW]", "[SNOW]"),
+    75: ("Heavy Snow", "[SNOW]", "[SNOW]"),
+    77: ("Snow Grains", "[SNOW]", "[SNOW]"),
+    80: ("Rain Showers", "[RAIN]", "[RAIN]"),
+    81: ("Rain Showers", "[RAIN]", "[RAIN]"),
+    82: ("Heavy Rain Showers", "[RAIN]", "[RAIN]"),
+    85: ("Snow Showers", "[SNOW]", "[SNOW]"),
+    86: ("Heavy Snow Showers", "[SNOW]", "[SNOW]"),
+    95: ("Thunderstorm", "[STORM]", "[STORM]"),
+    96: ("Thunderstorm With Hail", "[STORM]", "[STORM]"),
+    99: ("Severe Thunderstorm", "[STORM]", "[STORM]"),
+}
+
 
 class WeatherService:
-    """Handles weather data fetching from OpenWeatherMap One Call API 3.0"""
+    """Handles weather data fetching from Open-Meteo APIs."""
     
     def __init__(self, config: AppConfig):
         self.config = config
-        self.api_key = config.openweather_api_key
         self.location = config.weather_location
-        self.base_url = "https://api.openweathermap.org/data/3.0/onecall"
-        
-        if not self.api_key:
-            mode = "mocked" if config.allow_mock_data else "empty"
-            print(f"⚠️  Warning: No OpenWeatherMap API key found. Weather data will be {mode}.")
+        self.geocoding_url = "https://geocoding-api.open-meteo.com/v1/search"
+        self.forecast_url = "https://api.open-meteo.com/v1/forecast"
     
-    def _get_weather_icon(self, weather_code: str, is_day: bool = True) -> str:
-        """Map OpenWeather weather codes to ASCII-compatible icons"""
-        # OpenWeather weather codes mapping to ASCII characters for thermal printer compatibility
-        icon_map = {
-            # Clear sky
-            "01d": "[SUN]",  # clear sky day
-            "01n": "[MOON]",  # clear sky night
-            
-            # Few clouds
-            "02d": "[SUN_CLOUD]",  # few clouds day
-            "02n": "[CLOUD]",  # few clouds night
-            
-            # Scattered clouds
-            "03d": "[CLOUD]",  # scattered clouds
-            "03n": "[CLOUD]",
-            
-            # Broken clouds
-            "04d": "[CLOUD]",  # broken clouds
-            "04n": "[CLOUD]",
-            
-            # Shower rain
-            "09d": "[RAIN]",  # shower rain
-            "09n": "[RAIN]",
-            
-            # Rain
-            "10d": "[RAIN]",  # rain day
-            "10n": "[RAIN]",  # rain night
-            
-            # Thunderstorm
-            "11d": "[STORM]",  # thunderstorm
-            "11n": "[STORM]",
-            
-            # Snow
-            "13d": "[SNOW]",  # snow
-            "13n": "[SNOW]",
-            
-            # Mist
-            "50d": "[FOG]",  # mist
-            "50n": "[FOG]",
-        }
-        
-        return icon_map.get(weather_code, "[WEATHER]")  # Default icon
+    def _get_weather_details(self, weather_code: int, is_day: bool) -> Tuple[str, str]:
+        """Map WMO weather codes to display labels and ASCII-friendly icons."""
+        description, day_icon, night_icon = WEATHER_CODE_MAP.get(
+            weather_code,
+            ("Weather Unavailable", "[WEATHER]", "[WEATHER]"),
+        )
+        return description, day_icon if is_day else night_icon
     
     def _get_coordinates(self) -> Tuple[float, float]:
-        """Get coordinates for the location using Geocoding API"""
-        geocoding_url = "https://api.openweathermap.org/geo/1.0/direct"
+        """Get coordinates for the location using Open-Meteo geocoding."""
         params = {
-            'q': self.location,
-            'appid': self.api_key,
-            'limit': 1
+            'name': self.location,
+            'count': 1,
+            'language': 'de' if self.config.language == 'german' else 'en',
+            'format': 'json',
         }
         
-        response = requests.get(geocoding_url, params=params, timeout=10)
+        response = requests.get(self.geocoding_url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
         
-        if not data:
+        results = data.get('results', [])
+        if not results:
             raise Exception(f"Location '{self.location}' not found")
         
-        return data[0]['lat'], data[0]['lon']
+        return results[0]['latitude'], results[0]['longitude']
     
     def get_current_weather(self) -> Optional[WeatherData]:
-        """Get current weather data using One Call API 3.0"""
-        if not self.api_key:
-            return self._get_mock_weather() if self.config.allow_mock_data else None
-        
+        """Get current weather data using Open-Meteo forecast APIs."""
         try:
-            # Get coordinates for the location
             lat, lon = self._get_coordinates()
-            
-            # Use One Call API 3.0
             params = {
                 'lat': lat,
                 'lon': lon,
-                'appid': self.api_key,
-                'units': 'metric',
-                'exclude': 'minutely,alerts'  # Exclude unnecessary data to save API calls
+                'current': 'temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day',
+                'daily': 'weather_code,temperature_2m_max,temperature_2m_min',
+                'forecast_days': 2,
+                'temperature_unit': 'celsius',
+                'wind_speed_unit': 'kmh',
+                'timezone': self.config.timezone,
             }
             
-            response = requests.get(self.base_url, params=params, timeout=10)
+            response = requests.get(self.forecast_url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             
-            # Extract current weather
             current = data['current']
-            daily = data['daily'][0]  # Today's forecast
-
-            # Get weather icon
-            weather_icon = current['weather'][0]['icon']
-            icon_emoji = self._get_weather_icon(weather_icon)
-
-            # Create weather history summary (ASCII only, no degree symbol)
-            weather_history = f"Min: {round(daily['temp']['min'])} C, Max: {round(daily['temp']['max'])} C"
-
-            # Get tomorrow's forecast if available
+            daily = data['daily']
+            today_high = round(daily['temperature_2m_max'][0])
+            today_low = round(daily['temperature_2m_min'][0])
+            condition, icon = self._get_weather_details(
+                int(current['weather_code']),
+                bool(current.get('is_day', 1)),
+            )
+            weather_history = f"Min: {today_low} C, Max: {today_high} C"
             tomorrow_forecast = ""
-            if len(data['daily']) > 1:
-                tomorrow = data['daily'][1]
-                tomorrow_temp_min = round(tomorrow['temp']['min'])
-                tomorrow_temp_max = round(tomorrow['temp']['max'])
-                tomorrow_condition = tomorrow['weather'][0]['description'].title()
+            if len(daily['weather_code']) > 1:
+                tomorrow_condition, _ = self._get_weather_details(int(daily['weather_code'][1]), True)
+                tomorrow_temp_min = round(daily['temperature_2m_min'][1])
+                tomorrow_temp_max = round(daily['temperature_2m_max'][1])
                 tomorrow_forecast = f"{tomorrow_condition}, {tomorrow_temp_min}-{tomorrow_temp_max} C"
 
             return WeatherData(
-                temperature=f"{round(current['temp'])} C",
-                condition=current['weather'][0]['description'].title(),
-                high=f"{round(daily['temp']['max'])} C",
-                low=f"{round(daily['temp']['min'])} C",
-                humidity=f"{current['humidity']}%",
-                wind_speed=f"{round(current['wind_speed'] * 3.6, 1)} km/h",  # Convert m/s to km/h
-                feels_like=f"{round(current['feels_like'])} C",
-                icon=icon_emoji,
+                temperature=f"{round(current['temperature_2m'])} C",
+                condition=condition,
+                high=f"{today_high} C",
+                low=f"{today_low} C",
+                humidity=f"{round(current['relative_humidity_2m'])}%",
+                wind_speed=f"{round(current['wind_speed_10m'], 1)} km/h",
+                feels_like=f"{round(current['apparent_temperature'])} C",
+                icon=icon,
                 history=weather_history,
                 tomorrow_forecast=tomorrow_forecast
             )
@@ -153,9 +139,9 @@ class WeatherService:
             humidity="65%",
             wind_speed="12.0 km/h",
             feels_like="19 C",
-            icon="[CLOUD]",
+            icon="[SUN_CLOUD]",
             history="Min: 14 C, Max: 22 C",
-            tomorrow_forecast="Sunny, 16-24 C"
+            tomorrow_forecast="Mainly Clear, 16-24 C"
         )
 
 

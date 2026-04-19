@@ -3,13 +3,13 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
-**receipt-ai** is a Python script that pulls data from Gmail, Google Calendar, Google Tasks, and OpenWeatherMap, generates a daily summary via OpenAI, and prints it to an ESC/POS thermal receipt printer. Supports USB, network, and file-based printer transports. Output can also be saved as PNG or plain text.
+**receipt-ai** is a Python script that pulls data from Gmail, Google Calendar, Google Tasks, and Open-Meteo, generates a daily summary via OpenAI, and prints it to an ESC/POS thermal receipt printer. Supports USB, network, and file-based printer transports. Output can also be saved as PNG or plain text.
 
 ---
 
 ## Features
 
-- **Data aggregation** — fetches emails, calendar events, tasks, and weather from Google APIs and OpenWeatherMap
+- **Data aggregation** — fetches emails, calendar events, tasks, and weather from Google APIs and Open-Meteo
 - **Summary generation** — OpenAI generates a condensed daily briefing; language and formatting are configurable
 - **ESC/POS printing** — sends formatted output to USB, network, or file-based thermal printers
 - **PNG preview** — renders the receipt as an image before printing
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 cp env.example .env
 ```
 
-1. Fill in `.env` with API keys and printer config
+1. Fill in `.env` with your OpenAI key, Google credentials, and printer config
 2. Enable Gmail, Calendar, and Tasks APIs in Google Cloud Console; add OAuth credentials
 3. Place the OAuth JSON in `cloud_credentials/`
 4. Run initial auth: `python3 oauth_setup.py`
@@ -46,6 +46,7 @@ cp env.example .env
 | `RECEIPT_LANGUAGE` | Briefing language | `german` |
 | `USER_TIMEZONE` | Timezone | `Europe/Berlin` |
 | `WEATHER_LOCATION` | City and country code | `Karlsruhe,DE` |
+| `ALLOW_MOCK_DATA` | Enable demo data when integrations fail | `false` |
 | `THERMAL_PRINTER_TYPE` | `usb`, `network`, or `file_test` | `file_test` |
 | `PREVIEW_PNG` | Auto-open PNG preview | `true` |
 

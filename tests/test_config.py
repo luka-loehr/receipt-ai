@@ -13,7 +13,6 @@ class AppConfigTests(unittest.TestCase):
             "USER_TIMEZONE": "UTC",
             "AI_MODEL": "gpt-4o-mini",
             "MAX_OUTPUT_TOKENS": "900",
-            "OPENWEATHER_API_KEY": "weather-key",
             "WEATHER_LOCATION": "Berlin,DE",
             "MAX_EMAILS_TO_PROCESS": "7",
             "MAX_TASKS_TO_PROCESS": "11",
