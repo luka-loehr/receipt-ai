@@ -204,7 +204,7 @@ Weekend: {context.is_weekend}
                             overdue.append(task)
                         elif days_until <= 3:
                             due_soon.append(task)
-                    except:
+                    except ValueError:
                         pass
 
             if overdue:

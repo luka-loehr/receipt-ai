@@ -106,7 +106,7 @@ class TaskService:
                     try:
                         due_dt = datetime.datetime.fromisoformat(task['due'].replace('Z', '+00:00'))
                         due_date = due_dt.strftime("%Y-%m-%d")
-                    except:
+                    except ValueError:
                         due_date = task['due']
                 
                 # Determine priority
@@ -144,7 +144,7 @@ class TaskService:
                         # Future tasks get lower priority
                         else:
                             return (2, days_until_due)  # Future: sort by days until due
-                    except:
+                    except ValueError:
                         return (3, 0)  # Invalid due date: lowest priority
                 else:
                     return (3, 0)  # No due date: lowest priority
@@ -227,7 +227,7 @@ class TaskService:
                     try:
                         due_dt = datetime.datetime.fromisoformat(task['due'].replace('Z', '+00:00'))
                         due_date = due_dt.strftime("%Y-%m-%d")
-                    except:
+                    except ValueError:
                         due_date = task['due']
                 
                 # Determine priority

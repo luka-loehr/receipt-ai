@@ -83,7 +83,7 @@ class EmailService:
                     from email.utils import parsedate_to_datetime
                     dt = parsedate_to_datetime(date_str)
                     time_str = dt.strftime("%I:%M %p")
-                except:
+                except (TypeError, ValueError):
                     time_str = "Unknown"
                 
                 # Determine priority and importance via neutral defaults
