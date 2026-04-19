@@ -8,11 +8,17 @@ outputs/
 *.png
 *.jpg
 *.jpeg
+server/uploads/
 
 # Python cache
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.coverage
+
+# Node dependencies
+server/node_modules/
 
 # Virtual environment
 venv/
@@ -31,3 +37,6 @@ ENV/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log

@@ -6,16 +6,10 @@ Outputs PNG at outputs/png/todo_capture.png (under current working project root)
 """
 
 import os
-import sys
-from urllib.parse import urljoin
-from urllib.request import pathname2url
 
 from .capture_ai import CaptureAI
+from .path_utils import path_to_file_url
 from .todo_receipt import save_todo_receipt
-
-
-def path_to_file_url(path: str) -> str:
-    return urljoin('file:', pathname2url(os.path.abspath(path)))
 
 
 def main():
@@ -36,5 +30,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
