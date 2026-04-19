@@ -32,8 +32,8 @@ cp env.example .env
 1. Fill in `.env` with your OpenAI key, Google credentials, and printer config
 2. Enable Gmail, Calendar, and Tasks APIs in Google Cloud Console; add OAuth credentials
 3. Place the OAuth JSON in `cloud_credentials/`
-4. Run initial auth: `python3 oauth_setup.py`
-5. (Optional) Configure USB printer: `python3 printer_setup.py`
+4. Run initial auth: `python3 scripts/setup/oauth_setup.py`
+5. (Optional) Configure USB printer: `python3 scripts/setup/printer_setup.py`
 6. Generate briefing: `python3 daily_brief.py`
 
 ---

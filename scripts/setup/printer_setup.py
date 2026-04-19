@@ -11,6 +11,8 @@ Requires: pyusb (pip install pyusb)
 import os
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 def list_usb_devices():
     try:
@@ -68,10 +70,10 @@ def choose_device(devices):
 
 
 def update_env(values):
-    env_path = Path('.env')
+    env_path = PROJECT_ROOT / '.env'
     if not env_path.exists():
         # seed from example if available
-        example = Path('env.example')
+        example = PROJECT_ROOT / 'env.example'
         if example.exists():
             env_path.write_text(example.read_text())
         else:
@@ -128,5 +130,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
