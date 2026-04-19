@@ -1,556 +1,67 @@
 #!/usr/bin/env python3
 """
-Daily Brief Generator — Personalized Daily Summary Receipt
-Creates a beautiful 58mm thermal printer briefing with your daily overview using modular architecture
+Daily Brief Generator — Personalized Daily Summary Receipt.
+Coordinates data loading, rendering, saving, and printing.
 """
 
-from PIL import Image, ImageDraw, ImageFont
-import datetime
-import textwrap
 import os
-import random
-import platform
 
-# Import modular system
-from .config import AppConfig, get_config
-from .models import CompleteReceiptContent, PrintableContent
-from .data_manager import ModularDataManager, get_data_manager
+from .config import get_config
+from .data_manager import ModularDataManager
 from .path_utils import ensure_parent_dir
+from .brief_rendering import render_daily_brief
+from .brief_runtime import (
+    open_png_preview,
+    print_to_thermal_printer,
+    save_text_brief,
+    submit_escpos_file_to_cups,
+)
 
-# Initialize with configuration
+
 config = get_config()
 
-# ============================================
 
-# Constants for 58mm thermal printer
-# Using 2x resolution for better quality, then downscale
-DPI_SCALE = 2  # Render at 2x for better quality
-PAPER_WIDTH = 384 * DPI_SCALE  # pixels at 203 dpi * scale
-FINAL_WIDTH = 384  # Final output width
-MARGIN = 8 * DPI_SCALE  # Minimal margin for maximum text space
-BG_COLOR = "white"
-FG_COLOR = "black"
-GRAY_COLOR = "#666666"
-
-# ============== THERMAL PRINTER SUPPORT ==============
-
-def get_printer_config():
-    """Get printer configuration from environment or config file"""
-    try:
-        from .printer_config import PRINTER_CONFIGS
-        
-        # Check if user has a preferred printer config
-        printer_type = os.getenv('THERMAL_PRINTER_TYPE', 'file_test')
-        
-        if printer_type in PRINTER_CONFIGS:
-            return PRINTER_CONFIGS[printer_type]
-        else:
-            print(f"⚠️  Printer config '{printer_type}' not found, using file_test")
-            return PRINTER_CONFIGS['file_test']
-            
-    except ImportError:
-        print("⚠️  printer_config.py not found, using file-based printer")
-        from .thermal_printer import PrinterConfig
-        return PrinterConfig(
-            connection_type='file',
-            device_id='outputs/escpos/daily_brief.txt'
-        )
-
-def print_to_thermal_printer(receipt_content, printable_content):
-    """Print the daily brief to thermal printer using AI-generated content"""
-    try:
-        from .thermal_printer import ThermalPrinter
-        
-        # Connect to printer using centralized .env configuration
-        printer = ThermalPrinter.from_env()
-        
-        if printer.is_connected():
-            # Print the daily brief using AI-generated content
-            success = printer.print_daily_brief(receipt_content, printable_content)
-            
-            if success:
-                print("✅ Daily brief printed successfully!")
-            else:
-                print("❌ Printing failed")
-            
-            printer.disconnect()
-            return success
-        else:
-            print("❌ Could not connect to thermal printer")
-            return False
-            
-    except ImportError:
-        print("⚠️  Thermal printer support not available. Install with: pip install python-escpos")
-        return False
-    except Exception as e:
-        print(f"❌ Thermal printer error: {e}")
-        return False
-
-# ============== EXISTING FUNCTIONS (unchanged) ==============
-
-def load_font(size=16, bold=False, mono=False):
-    """Load fonts using cross-platform compatible approach with Unicode support"""
-    # Scale font size for higher DPI
-    size = size * DPI_SCALE
-    
-    # Try to find a system font that supports international characters including Chinese
-    font_paths = []
-    
-    # Common system fonts that support international characters including Chinese
-    if os.name == 'nt':  # Windows
-        font_paths = [
-            "C:\\Windows\\Fonts\\msyh.ttc",  # Microsoft YaHei (Chinese)
-            "C:\\Windows\\Fonts\\simsun.ttc",  # SimSun (Chinese)
-            "C:\\Windows\\Fonts\\simhei.ttf",  # SimHei (Chinese)
-            "C:\\Windows\\Fonts\\arial.ttf",
-            "C:\\Windows\\Fonts\\calibri.ttf",
-            "C:\\Windows\\Fonts\\segoeui.ttf",
-            "C:\\Windows\\Fonts\\tahoma.ttf"
-        ]
-    elif os.name == 'posix':  # macOS and Linux
-        if platform.system() == 'Darwin':  # macOS
-            font_paths = [
-                "/System/Library/Fonts/PingFang.ttc",  # Chinese font
-                "/System/Library/Fonts/STHeiti Light.ttc",  # Chinese font
-                "/System/Library/Fonts/Helvetica.ttc",
-                "/System/Library/Fonts/Arial.ttf",
-                "/Library/Fonts/Arial.ttf"
-            ]
-        else:  # Linux
-            font_paths = [
-                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",  # Chinese font
-                "/usr/share/fonts/truetype/noto/NotoSansCJK-Medium.ttc",  # Chinese font
-                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf"
-            ]
-    
-    # Try to load a system font
-    for font_path in font_paths:
-        if os.path.exists(font_path):
-            try:
-                return ImageFont.truetype(font_path, int(size))
-            except Exception:
-                continue
-    
-    # Fallback to default font if no system fonts found
-    try:
-        return ImageFont.load_default(size=int(size))
-    except Exception:
-        return ImageFont.load_default()
-
-def draw_centered_text(draw, y, text, font, color=FG_COLOR):
-    """Draw centered text"""
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_width = bbox[2] - bbox[0]
-    x = (PAPER_WIDTH - text_width) // 2
-    draw.text((x, y), text, fill=color, font=font)
-    return bbox[3] - bbox[1]
-
-def draw_wrapped_text(draw, x, y, text, font, max_width, color=FG_COLOR, line_spacing_multiplier=1.4):
-    """Draw text with aggressive width utilization"""
-    words = text.split()
-    lines = []
-    current_line = ""
-    
-    for word in words:
-        # Test if adding this word would exceed width
-        test_line = current_line + (" " if current_line else "") + word
-        test_bbox = draw.textbbox((0, 0), test_line, font=font)
-        test_width = test_bbox[2] - test_bbox[0]
-        
-        if test_width <= max_width:
-            current_line = test_line
-        else:
-            # Line would be too long, start new line
-            if current_line:
-                lines.append(current_line)
-                current_line = word
-            else:
-                # Single word is too long, force it anyway
-                lines.append(word)
-                current_line = ""
-    
-    # Add the last line
-    if current_line:
-        lines.append(current_line)
-    
-    total_height = 0
-    for i, line in enumerate(lines):
-        draw.text((x, y), line, fill=color, font=font)
-        bbox = draw.textbbox((0, 0), line, font=font)
-        line_height = bbox[3] - bbox[1]
-        
-        # Apply line spacing multiplier for better readability
-        spacing = int(line_height * line_spacing_multiplier)
-        y += spacing
-        total_height += spacing
-    
-    return total_height
-
-def draw_separator(draw, y, style="solid", width=1):
-    """Draw a separator line"""
-    if style == "solid":
-        draw.line([(MARGIN, y), (PAPER_WIDTH - MARGIN, y)], fill=FG_COLOR, width=width)
-    elif style == "dashed":
-        for x in range(MARGIN, PAPER_WIDTH - MARGIN, 8):
-            draw.line([(x, y), (min(x + 4, PAPER_WIDTH - MARGIN), y)], fill=FG_COLOR, width=width)
-    elif style == "dotted":
-        for x in range(MARGIN, PAPER_WIDTH - MARGIN, 6):
-            draw.ellipse([(x, y-1), (x+2, y+1)], fill=FG_COLOR)
-    return width + 2
-
-def draw_decorative_border(draw, y, height=3):
-    """Draw a decorative border pattern"""
-    pattern = "▪ □ ▪"
-    for i in range(3):
-        draw.line([(MARGIN, y + i), (PAPER_WIDTH - MARGIN, y + i)], fill=FG_COLOR, width=1)
-    return height + 2
-
-def get_greeting():
-    """Get hardcoded time-appropriate greeting in German"""
-    import datetime
-    
-    current_hour = datetime.datetime.now().hour
-    user_name = config.user_name
-    
-    if 5 <= current_hour < 12:
-        return f"Guten Morgen, {user_name}!"
-    elif 12 <= current_hour < 17:
-        return f"Guten Tag, {user_name}!"
-    elif 17 <= current_hour < 22:
-        return f"Guten Abend, {user_name}!"
-    else:
-        return f"Gute Nacht, {user_name}!"
-
-def get_priority_symbol(priority):
-    """Get visual indicator for priority"""
-    # Using ASCII characters for better compatibility
-    symbols = {
-        "high": "[!]",
-        "medium": "[*]",
-        "low": "[ ]"
-    }
-    return symbols.get(priority, "[ ]")
-
-def generate_german_overview(emails, events):
-    """Backward-compat wrapper kept for safety; actual overview is generated via AIService in DataManager."""
-    # Minimal fallback - this function is not used in the current flow
-    total_emails = len(emails)
-    event_count = len(events)
-    greeting = get_greeting()
-    return f"{greeting} Du hast {total_emails} neue E-Mails und {event_count} Termine."
-
-def generate_text_brief(brief_response, ai_brief, data_manager=None):
-    """Generate a plain text version that matches exactly what's on the PNG"""
-    import locale
-    
-    # Set German locale for date formatting
-    try:
-        locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
-    except locale.Error:
-        try:
-            locale.setlocale(locale.LC_TIME, 'de_DE')
-        except locale.Error:
-            # Fallback to manual German month/day names
-            pass
-    
-    now = datetime.datetime.now()
-    
-    # German month and day names
-    german_months = {
-        1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni',
-        7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
-    }
-    german_days = {
-        0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 
-        4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
-    }
-    
-    # Create German date string
-    day_name = german_days[now.weekday()]
-    month_name = german_months[now.month]
-    date_str = f"{day_name}, {now.day}. {month_name} {now.year}"
-    time_str = now.strftime("%H:%M")
-    
-    # Get tasks if available (same logic as PNG generation)
-    tasks_text = ""
-    if hasattr(data_manager, 'task_service'):
-        try:
-            tasks = data_manager.task_service.get_tasks()
-            if tasks:
-                tasks_text = "\n✅ AUFGABEN\n\n"
-                # AI rewrite/translate task titles via data_manager
-                try:
-                    rewritten = data_manager.ai_service.rewrite_list_items([t.title for t in tasks], data_manager.config.get_language_code())
-                except Exception:
-                    rewritten = [t.title for t in tasks]
-                for i, text in enumerate(rewritten, 1):
-                    tasks_text += f"{text}\n"
-        except Exception as e:
-            print(f"⚠️  Error generating tasks for text: {e}")
-    
-    # Get shopping list if available
-    shopping_text = ""
-    if data_manager and hasattr(data_manager, 'last_shopping_list') and data_manager.last_shopping_list:
-        try:
-            shopping_text = "\n🛒 EINKAUFSLISTE\n\n"
-            # AI rewrite/translate shopping items via data_manager
-            try:
-                rewritten_items = data_manager.ai_service.rewrite_list_items([i.title for i in data_manager.last_shopping_list], data_manager.config.get_language_code())
-            except Exception:
-                rewritten_items = [i.title for i in data_manager.last_shopping_list]
-            for i, text in enumerate(rewritten_items, 1):
-                shopping_text += f"{text}\n"
-        except Exception as e:
-            print(f"⚠️  Error generating shopping list for text: {e}")
-    
-    # Create text content using AI-generated content
-    text_content = f"""{brief_response.header.greeting}
-
-{brief_response.header.title}
-
-{brief_response.header.date_formatted}
-
-{ai_brief}
-
-{tasks_text}{shopping_text}"""
-    
-    # Save text file
-    ensure_parent_dir(config.output_txt_file)
-    with open(config.output_txt_file, 'w', encoding='utf-8') as f:
-        f.write(text_content)
-    
-
-
-def create_daily_brief(data_manager):
-    """Generate the AI-powered daily briefing receipt using modular system"""
-    # Use provided data manager
-    
-    # Generate complete AI-powered receipt content and get raw data
+def create_daily_brief(data_manager: ModularDataManager):
+    """Generate the daily briefing image and return reusable raw data."""
     receipt_content, raw_data = data_manager.generate_complete_receipt()
-    weather, emails, events, raw_tasks, raw_shopping = raw_data
-    
-    # Format for printing 
+    _, _, _, raw_tasks, raw_shopping = raw_data
+
     printable_content = data_manager.format_for_printing(
         receipt_content,
-        tasks=raw_tasks,  # Pass actual task data
-        shopping_items=raw_shopping  # Pass actual shopping data
+        tasks=raw_tasks,
+        shopping_items=raw_shopping,
     )
-    
-    # Also generate text version that matches PNG exactly
-    generate_text_brief(receipt_content, receipt_content.summary.brief, data_manager)
-    
-    # Start with smaller canvas at higher resolution
-    canvas_height = 1000 * DPI_SCALE
-    img = Image.new("RGB", (PAPER_WIDTH, canvas_height), BG_COLOR)
-    draw = ImageDraw.Draw(img)
-    
-    # Load fonts with better sizes for clarity
-    font_title = load_font(26, bold=True)
-    font_normal = load_font(16)
-    font_small = load_font(14)
-    font_tiny = load_font(12)
-    
-    y = MARGIN
-    
-    # Decorative top border
-    y += draw_decorative_border(draw, y)
-    y += 15 * DPI_SCALE
-    
-    # AI-generated greeting
-    y += draw_centered_text(draw, y, receipt_content.header.greeting, font_title)
-    y += 15 * DPI_SCALE
-    
-    # AI-generated subtitle
-    y += draw_centered_text(draw, y, receipt_content.header.title, font_normal, GRAY_COLOR)
-    y += 10 * DPI_SCALE
-    
-    # AI-generated date
-    y += draw_centered_text(draw, y, receipt_content.header.date_formatted, font_small)
-    y += 20 * DPI_SCALE
-    
-    # Decorative separator
-    y += draw_separator(draw, y, "solid", 2 * DPI_SCALE)
-    y += 25 * DPI_SCALE
-    
-    # AI-generated comprehensive overview with optimized spacing
-    y += draw_wrapped_text(draw, MARGIN, y, receipt_content.summary.brief, font_normal, 
-                          PAPER_WIDTH - MARGIN * 2, FG_COLOR, line_spacing_multiplier=1.4)
-    y += 25 * DPI_SCALE
-    
-    # Tasks Section
-    tasks = []
-    original_tasks = []  # Store original untruncated tasks
-    if receipt_content.task_section and printable_content.printable_tasks:
-        try:
-            # Use the already fetched raw task data
-            original_tasks = raw_tasks
-            tasks = printable_content.printable_tasks
-            
-            if tasks:
-                # Section header
-                y += draw_separator(draw, y, "dashed", 1 * DPI_SCALE)
-                y += 15 * DPI_SCALE
-                
-                # AI-generated section title
-                y += draw_centered_text(draw, y, receipt_content.task_section.section_title, font_small, GRAY_COLOR)
-                y += 15 * DPI_SCALE
-                
-                # Draw tasks with checkboxes
-                for i, task in enumerate(tasks):
-                    # Checkbox (empty square)
-                    checkbox_x = MARGIN + 10 * DPI_SCALE
-                    checkbox_size = 12 * DPI_SCALE
-                    draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
-                                   outline=FG_COLOR, width=1)
-                    
-                    # Use pre-formatted task text from printable content, fallback to plain
-                    task_text = getattr(task, 'display_text', None) or str(task)
-                    
-                    # Draw task text
-                    draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), task_text, 
-                              fill=FG_COLOR, font=font_tiny)
-                    
-                    y += checkbox_size + 8 * DPI_SCALE
-                    
-                    # Add small spacing between tasks
-                    if i < len(tasks) - 1:
-                        y += 5 * DPI_SCALE
-                
-                y += 15 * DPI_SCALE
-        except Exception as e:
-            print(f"⚠️  Error displaying tasks: {e}")
-    
-    # Shopping List Section  
-    if receipt_content.shopping_section and printable_content.printable_shopping:
-        try:
-            # Section header
-            y += draw_separator(draw, y, "dashed", 1 * DPI_SCALE)
-            y += 15 * DPI_SCALE
-            
-            # AI-generated section title
-            y += draw_centered_text(draw, y, receipt_content.shopping_section.section_title, font_small, GRAY_COLOR)
-            y += 15 * DPI_SCALE
-            
-            # Draw shopping list items with checkboxes
-            for i, item in enumerate(printable_content.printable_shopping):
-                # Checkbox (empty square)
-                checkbox_x = MARGIN + 10 * DPI_SCALE
-                checkbox_size = 12 * DPI_SCALE
-                draw.rectangle([checkbox_x, y, checkbox_x + checkbox_size, y + checkbox_size], 
-                             outline=FG_COLOR, width=1)
-                
-                # Use pre-formatted item text from printable content, fallback to plain
-                item_text = getattr(item, 'display_text', None) or str(item)
-                
-                # Draw item text
-                draw.text((checkbox_x + checkbox_size + 8 * DPI_SCALE, y), item_text, 
-                         fill=FG_COLOR, font=font_tiny)
-                
-                y += checkbox_size + 8 * DPI_SCALE
-                
-                # Add small spacing between items
-                if i < len(printable_content.printable_shopping) - 1:
-                    y += 5 * DPI_SCALE
-            
-            y += 15 * DPI_SCALE
-        except Exception as e:
-            print(f"⚠️  Error displaying shopping list: {e}")
-    
-    # Bottom decorative border
-    y += draw_decorative_border(draw, y)
-    y += 15 * DPI_SCALE
-    
-    # Bottom margin only (footer removed)
-    y += MARGIN
-    
-    # Crop to content
-    img = img.crop((0, 0, PAPER_WIDTH, y))
-    
-    # Downscale for better quality (anti-aliasing)
-    if DPI_SCALE > 1:
-        new_size = (FINAL_WIDTH, int(y / DPI_SCALE))
-        img = img.resize(new_size, Image.Resampling.LANCZOS)
-    
-    return img, receipt_content, original_tasks, raw_data
+    save_text_brief(receipt_content, printable_content, config.output_txt_file)
+    image = render_daily_brief(receipt_content, printable_content, raw_tasks)
+    return image, receipt_content, printable_content, raw_data
+
 
 def main():
-    """Generate and save the daily briefing, then print to thermal printer"""
+    """Generate and save the daily briefing, then print to thermal printer."""
     print("📅  Generating your daily briefing...")
-    
-    # Create single data manager instance
     current_config = get_config()
     print(f"✅ Language: {current_config.get_language_code()}")
     print()
+
     data_manager = ModularDataManager(current_config)
-    
-    # Create briefing (now returns image, receipt_content, tasks, and raw_data)
-    brief_img, receipt_content, tasks, raw_data = create_daily_brief(data_manager)
-    
-    # Save PNG
+    brief_img, receipt_content, printable_content, raw_data = create_daily_brief(data_manager)
+
     ensure_parent_dir(config.output_png_file)
     brief_img.save(config.output_png_file)
-    
-    # Print to thermal printer
+
     print("\n🖨️  Printing daily brief...")
-    
-    # Use the cached raw data instead of fetching again
-    weather, emails, events, raw_tasks, raw_shopping = raw_data
-    
-    printable_content = data_manager.format_for_printing(
-        receipt_content,
-        tasks=raw_tasks,  # Pass actual task data
-        shopping_items=raw_shopping  # Pass actual shopping data
-    )
-    
-    success = print_to_thermal_printer(receipt_content, printable_content)
-    
-    # If using file-based printer, optionally auto-submit ESC/POS to CUPS
-    try:
-        cups_printer = os.getenv('CUPS_PRINTER')
-        printer_type = os.getenv('THERMAL_PRINTER_TYPE', 'file_test').lower()
-        escpos_path = os.getenv('PRINTER_FILE_PATH', config.output_escpos_file)
-        if printer_type in ('file', 'file_test') and cups_printer and escpos_path and os.path.exists(escpos_path):
-            # Submit to CUPS for physical print
-            import subprocess
-            try:
-                cp = subprocess.run(['lp', '-d', cups_printer, '-o', 'raw', escpos_path], check=True, capture_output=True, text=True)
-                msg = cp.stdout.strip() or cp.stderr.strip()
-                # Print as single concise line
-                if msg:
-                    print(f"✅ Printed (CUPS {msg})")
-                else:
-                    print("✅ Printed")
-            except subprocess.CalledProcessError as e:
-                err = e.stderr.strip() if hasattr(e, 'stderr') and e.stderr else str(e)
-                print(f"❌ Print failed: {err}")
-    except Exception as e:
-        # Non-fatal; keep minimal output
-        pass
-    
-    # Auto-open image (controlled by PREVIEW_PNG)
+    print_to_thermal_printer(receipt_content, printable_content)
+
+    printer_type = os.getenv('THERMAL_PRINTER_TYPE', 'file_test').lower()
+    cups_printer = os.getenv('CUPS_PRINTER')
+    escpos_path = os.getenv('PRINTER_FILE_PATH', config.output_escpos_file)
+    submit_escpos_file_to_cups(printer_type, escpos_path, cups_printer)
+
     preview_png = os.getenv('PREVIEW_PNG', 'true').lower() == 'true'
-    if preview_png:
-        try:
-            import subprocess
-            import sys
-            if sys.platform == "darwin":  # macOS
-                subprocess.run(["open", config.output_png_file])
-            elif sys.platform == "linux":
-                # Try multiple Linux image viewers
-                viewers = ["xdg-open", "display", "eog", "gthumb", "gimp"]
-                for viewer in viewers:
-                    try:
-                        subprocess.run([viewer, config.output_png_file], check=True)
-                        break
-                    except (subprocess.CalledProcessError, FileNotFoundError):
-                        continue
-            elif sys.platform == "win32":  # Windows
-                subprocess.run(["start", config.output_png_file], shell=True)
-        except:
-            pass
+    open_png_preview(config.output_png_file, preview_png)
+
+    return raw_data
+
 
 if __name__ == "__main__":
     main()
