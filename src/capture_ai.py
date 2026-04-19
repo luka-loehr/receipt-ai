@@ -5,8 +5,7 @@ Uses GPT-4o (vision-capable) if OPENAI_API_KEY is present; otherwise mock.
 """
 
 from typing import List, Optional
-from pydantic import BaseModel
-import os
+from pydantic import BaseModel, Field
 import base64
 from urllib.parse import urlparse
 
@@ -25,6 +24,16 @@ from .todo_models import (
 )
 
 
+class CaptureAnalysisResult(BaseModel):
+    """Structured output for capture analysis."""
+
+    title: str = Field(default="Erkannte Inhalte")
+    overview: str = Field(description="Kurze deutsche Zusammenfassung.")
+    key_points: List[str] = Field(default_factory=list)
+    todos: List[ToDoItem] = Field(default_factory=list)
+    tables: List[TableSection] = Field(default_factory=list)
+
+
 class CaptureAI:
     def __init__(self):
         self.config = get_config()
@@ -34,6 +43,47 @@ class CaptureAI:
         self.mock = not self.api_key or OpenAI is None
         self.client = OpenAI(api_key=self.api_key) if not self.mock else None
 
+    def _prepare_user_parts(self, text: Optional[str], image_url: Optional[str]) -> List[dict]:
+        """Prepare multimodal message parts for OpenAI."""
+        user_parts: List[dict] = []
+        if text:
+            user_parts.append({"type": "text", "text": text})
+        if image_url:
+            try:
+                parsed = urlparse(image_url)
+                if parsed.scheme == 'file':
+                    local_path = parsed.path
+                    with open(local_path, 'rb') as f:
+                        b64 = base64.b64encode(f.read()).decode('ascii')
+                    mime = 'image/png' if local_path.lower().endswith('.png') else 'image/jpeg'
+                    image_url = f"data:{mime};base64,{b64}"
+                user_parts.append({"type": "image_url", "image_url": {"url": image_url}})
+            except Exception:
+                pass
+        if not user_parts:
+            user_parts.append({"type": "text", "text": "Kein Inhalt übergeben"})
+        return user_parts
+
+    def _build_content(self, text: Optional[str], result: CaptureAnalysisResult) -> ToDoReceiptContent:
+        """Convert structured AI output into receipt content."""
+        title = result.title.strip() if result.title.strip() else "Erkannte Inhalte"
+        if text and "theater" in text.lower() and title == "Erkannte Inhalte":
+            title = "Theater-Termine"
+
+        return ToDoReceiptContent(
+            header=ToDoReceiptHeader(
+                title=title,
+                date_formatted="",
+                source_label="Aus Eingabe",
+            ),
+            summary=ToDoReceiptSummary(
+                overview=result.overview.strip() or "Inhalt erkannt und strukturiert.",
+                key_points=result.key_points or None,
+            ),
+            todos=result.todos or [ToDoItem(title="Überprüfung notwendig")],
+            tables=result.tables or None,
+        )
+
     def analyze(self, text: Optional[str], image_url: Optional[str]) -> ToDoReceiptContent:
         if self.mock:
             return self._mock_output(text, image_url)
@@ -42,158 +92,40 @@ class CaptureAI:
             {
                 "role": "system",
                 "content": (
-                    "You extract structured schedule/todos from images or text and answer in concise German. "
-                    "Return a compact summary (2-3 sentences) and a bullet list of action items."
+                    "Du extrahierst strukturierte Termine und To-dos aus Bildern oder Text."
+                    " Antworte immer auf Deutsch und halte dich an das geforderte Ausgabeformat."
                 ),
             }
         ]
 
-        user_parts: List[dict] = []
-        if text:
-            user_parts.append({"type": "text", "text": text})
-        if image_url:
-            # Support local file URLs by converting to base64 data URLs
-            try:
-                parsed = urlparse(image_url)
-                if parsed.scheme == 'file':
-                    local_path = parsed.path
-                    with open(local_path, 'rb') as f:
-                        b64 = base64.b64encode(f.read()).decode('ascii')
-                    mime = 'image/png' if local_path.lower().endswith('.png') else 'image/jpeg'
-                    data_url = f"data:{mime};base64,{b64}"
-                    user_parts.append({"type": "image_url", "image_url": {"url": data_url}})
-                else:
-                    user_parts.append({"type": "image_url", "image_url": {"url": image_url}})
-            except Exception:
-                # Fallback to text-only if reading fails
-                pass
-        if not user_parts:
-            user_parts.append({"type": "text", "text": "Kein Inhalt übergeben"})
-
-        messages.append({"role": "user", "content": user_parts})
+        messages.append({"role": "user", "content": self._prepare_user_parts(text, image_url)})
 
         prompt = (
-            "Extrahiere strukturierte Informationen aus Bild/Text. Antworte NUR in Deutsch.\n"
-            "Pflicht: Liefere IMMER (wenn erkennbar) eine Tabelle mit Spalten 'Tag/Datum' | 'Zeit' | 'Details'.\n"
-            "- Erkenne Datumsformen wie 'Di 07.10', '15.10', '16.10', '17.10'.\n"
-            "- Erkenne Zeiten wie '17:00-21:00', 'ab 17:00', '10:00–14:00'.\n"
-            "- Details: kurze Beschreibung (z.B. 'Generalprobe', 'Aufführung 1 (Beginn 19:00)').\n"
-            "Gib zusätzlich 3–6 konkrete To‑dos.\n"
-            "Halte dich kurz und präzise."
+            "Extrahiere strukturierte Informationen aus Bild oder Text.\n"
+            "Setze `title` passend zum Inhalt, kurz und klar.\n"
+            "Setze `overview` auf 2-3 kurze deutsche Saetze.\n"
+            "Setze `key_points` auf 0-4 kurze Stichpunkte.\n"
+            "Setze `todos` auf 3-6 konkrete, umsetzbare Aufgaben wenn moeglich.\n"
+            "Wenn Termine erkennbar sind, liefere mindestens eine Tabelle mit den Spalten "
+            "`Tag/Datum`, `Zeit`, `Details`.\n"
+            "Erkenne Datumsformen wie `Di 07.10`, `15.10`, `16.10`, `17.10` und Zeiten wie "
+            "`17:00-21:00`, `ab 17:00`, `10:00-14:00`."
         )
         messages.append({"role": "system", "content": prompt})
 
         try:
-            resp = self.client.chat.completions.create(  # type: ignore
+            resp = self.client.chat.completions.parse(  # type: ignore
                 model=self.model,
                 messages=messages,
                 temperature=0.2,
+                response_format=CaptureAnalysisResult,
             )
-            text_out = resp.choices[0].message.content.strip()
+            message = resp.choices[0].message
+            if not message.parsed:
+                raise ValueError(f"Capture analysis unavailable: {message.refusal}")
+            return self._build_content(text, message.parsed)
         except Exception:
             return self._mock_output(text, image_url)
-
-        # Parse the AI response more intelligently
-        lines = text_out.split('\n')
-        overview = ""
-        todos = []
-        table_rows: List[List[str]] = []
-        
-        # Find overview section
-        for i, line in enumerate(lines):
-            if 'übersicht' in line.lower() or 'zusammenfassung' in line.lower():
-                # Look for content after this line
-                for j in range(i+1, min(i+3, len(lines))):
-                    if lines[j].strip() and not lines[j].strip().startswith('-'):
-                        overview = lines[j].strip()
-                        break
-                break
-        
-        # Find todos (lines starting with - or *)
-        for line in lines:
-            line = line.strip()
-            if line.startswith(('- ', '* ', '– ')):
-                todo_text = line[2:].strip()
-                if todo_text:
-                    todos.append(ToDoItem(title=todo_text))
-        
-        # Try to extract table data from the text
-        # Look for date patterns like "15.10", "16.10", "17.10"
-        import re
-        date_pattern = r'(\d{1,2}\.\d{1,2})'
-        # capture time ranges and variants
-        time_any_pattern = r'(\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}|ab\s*\d{1,2}:\d{2}|\d{1,2}:\d{2})'
-
-        # Aggregate multiple lines per date into one row
-        per_date: dict[str, dict[str, List[str] | str]] = {}
-        weekday_tokens = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so', 'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag']
-        
-        for raw in lines:
-            line = raw.strip()
-            if not line:
-                continue
-            if re.search(date_pattern, line):
-                date_match = re.search(date_pattern, line)
-                date = date_match.group(1) if date_match else ""
-                time_match = re.search(time_any_pattern, line, flags=re.IGNORECASE)
-                time_val = time_match.group(1) if time_match else ""
-                # Clean details: remove weekday tokens, pipes, and the matched date/time
-                details = line
-                details = details.replace(date, "")
-                if time_val:
-                    details = details.replace(time_val, "")
-                # Remove pipe artifacts and clean up
-                details = re.sub(r'\s*\|\s*', ' ', details)
-                details = re.sub(r'^\|\s*', '', details)
-                details = re.sub(r'\s*\|$', '', details)
-                # strip weekday tokens at start
-                parts = [p for p in re.split(r'\s+', details.strip(" -|.")) if p]
-                if parts and parts[0].lower().strip(':') in weekday_tokens:
-                    parts = parts[1:]
-                details = ' '.join(parts).strip()
-                # Remove action item numbers and clean up
-                details = re.sub(r'^\d+\.\s*', '', details)
-                details = re.sub(r'\s*am\s*$', '', details)
-                if details and not any(w in details.lower() for w in ['vorbereiten', 'bereitstellen', 'sicherstellen', 'überprüfen']):
-                    rec = per_date.setdefault(date, {"time": time_val, "details": []})
-                    if time_val and not rec["time"]:
-                        rec["time"] = time_val
-                    # append detail line
-                    cast_details = rec["details"]  # type: ignore
-                    cast_details.append(details)
-        
-        for d, obj in per_date.items():
-            first_time = obj["time"]  # type: ignore
-            details_joined = ' ; '.join(obj["details"])  # type: ignore
-            table_rows.append([d, str(first_time or ''), details_joined])
-
-        # Create table if we found data
-        table = None
-        if table_rows:
-            table = TableSection(
-                title="Termine",
-                columns=["Tag/Datum", "Zeit", "Details"],
-                rows=table_rows[:6]  # Limit to 6 rows
-            )
-
-        header = ToDoReceiptHeader(
-            title="Theater-Termine" if "theater" in (text or "").lower() else "Erkannte Inhalte",
-            date_formatted="",
-            source_label="Aus Eingabe",
-        )
-        
-        summary = ToDoReceiptSummary(
-            overview=overview or "Inhalt erkannt und strukturiert.",
-            key_points=["Termine und Aufgaben extrahiert"] if table_rows else None
-        )
-        
-        content = ToDoReceiptContent(
-            header=header, 
-            summary=summary, 
-            todos=todos or [ToDoItem(title="Überprüfung notwendig")],
-            tables=[table] if table else None
-        )
-        return content
 
     def _mock_output(self, text: Optional[str], image_url: Optional[str]) -> ToDoReceiptContent:
         # Generate better mock data based on input content
@@ -249,5 +181,4 @@ class CaptureAI:
             table = None
         
         return ToDoReceiptContent(header=header, summary=summary, todos=todos, tables=[table] if table else None)
-
 
