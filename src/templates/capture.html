@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Capture Receipt</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --card: rgba(255, 255, 255, 0.88);
+      --ink: #1f1b16;
+      --muted: #6f6658;
+      --accent: #c65f2c;
+      --line: #d9ccbb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(198, 95, 44, 0.12), transparent 28%),
+        linear-gradient(180deg, #f7f2e9 0%, var(--bg) 100%);
+    }
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 16px 32px rgba(76, 52, 24, 0.08);
+      backdrop-filter: blur(8px);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1.05;
+    }
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    textarea,
+    input[type="file"] {
+      width: 100%;
+      font: inherit;
+    }
+    textarea {
+      min-height: 180px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.85);
+      resize: vertical;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+    }
+    .link {
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .status {
+      margin-top: 14px;
+      color: var(--muted);
+    }
+    img {
+      margin-top: 18px;
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: white;
+    }
+    label {
+      display: block;
+      margin: 16px 0 8px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <div>
+          <h1>Capture Receipt</h1>
+          <p>Paste text, upload an image, or combine both. The app extracts the useful parts and renders a clean printable receipt.</p>
+        </div>
+        <a class="link" href="/">Back to Console</a>
+      </div>
+
+      <form id="captureForm">
+        <label for="text">Text</label>
+        <textarea id="text" name="text" placeholder="Paste notes, schedules, or rough plans here"></textarea>
+
+        <label for="image">Image</label>
+        <input id="image" name="image" type="file" accept="image/*" />
+
+        <div class="row" style="margin-top: 18px;">
+          <button class="btn" type="submit">Generate Capture Receipt</button>
+          <span id="status" class="status"></span>
+        </div>
+      </form>
+
+      <div id="preview"></div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("captureForm");
+    const statusEl = document.getElementById("status");
+    const previewEl = document.getElementById("preview");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      statusEl.textContent = "Generating...";
+      previewEl.innerHTML = "";
+
+      const formData = new FormData(form);
+      try {
+        const response = await fetch("/api/capture", {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.output || "Capture failed");
+        }
+
+        const image = document.createElement("img");
+        image.src = data.path;
+        image.alt = "Capture receipt preview";
+        previewEl.appendChild(image);
+        statusEl.textContent = "Done";
+      } catch (error) {
+        statusEl.textContent = "Error: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

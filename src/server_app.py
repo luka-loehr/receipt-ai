@@ -1,154 +1,76 @@
 #!/usr/bin/env python3
+"""
+Flask web console for generating the daily brief, printing quick text,
+and creating capture receipts from pasted text or uploaded images.
+"""
+
 import os
-import sys
-import threading
 import subprocess
-from typing import Optional
-from flask import Flask, request, jsonify, render_template_string
+import sys
+import tempfile
+from pathlib import Path
+
 from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request, send_file
 
-# Ensure .env is loaded
-load_dotenv()
+from .capture_ai import CaptureAI
+from .config import get_config
+from .path_utils import PROJECT_ROOT, path_to_file_url
+from .todo_receipt import save_todo_receipt
 
-app = Flask(__name__)
+
+load_dotenv(PROJECT_ROOT / ".env")
+
+app = Flask(__name__, template_folder=str(PROJECT_ROOT / "src" / "templates"))
+
+
+def _run_subprocess(args: list[str]) -> tuple[bool, str]:
+    """Run a command inside the project root and return status plus output."""
+    try:
+        completed = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+        )
+    except Exception as exc:
+        return False, str(exc)
+
+    output = (completed.stdout or "") + (completed.stderr or "")
+    return completed.returncode == 0, output
 
 
 def run_daily_brief_blocking() -> tuple[bool, str]:
     """Run the daily brief script synchronously in a subprocess."""
-    try:
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        cp = subprocess.run(
-            [sys.executable, os.path.join(project_root, 'daily_brief.py')],
-            capture_output=True,
-            text=True,
-            cwd=project_root,
-        )
-        success = cp.returncode == 0
-        output = (cp.stdout or '') + (cp.stderr or '')
-        return success, output
-    except Exception as e:
-        return False, str(e)
+    return _run_subprocess([sys.executable, str(PROJECT_ROOT / "daily_brief.py")])
 
 
 def print_text_blocking(text: str) -> tuple[bool, str]:
     """Run the print_text script synchronously in a subprocess."""
-    try:
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        cp = subprocess.run(
-            [sys.executable, os.path.join(project_root, 'scripts', 'print_text.py'), text],
-            capture_output=True,
-            text=True,
-            cwd=project_root,
-        )
-        success = cp.returncode == 0
-        output = (cp.stdout or '') + (cp.stderr or '')
-        return success, output
-    except Exception as e:
-        return False, str(e)
+    return _run_subprocess([sys.executable, str(PROJECT_ROOT / "scripts" / "print_text.py"), text])
 
 
-INDEX_HTML = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Printer Console</title>
-  <style>
-    :root {
-      --bg: #0b1220; --panel: #121a2b; --text: #e7eefc; --muted:#9bb3d3; --accent:#4f8cff; --accent2:#4fe3c1; --danger:#ff6b6b;
-    }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", "Helvetica Neue", Arial; background: var(--bg); color: var(--text); }
-    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
-    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 24px; }
-    .title { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
-    .status { font-size: 13px; color: var(--muted); }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .card { background: linear-gradient(180deg, #141e31 0%, #0f1727 100%); border: 1px solid #20304f; border-radius: 12px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-    .card h3 { margin: 0 0 10px; font-size: 16px; }
-    .btn { appearance:none; border:none; background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#071121; font-weight:700; padding: 10px 14px; border-radius: 10px; cursor:pointer; transition: transform .06s ease, filter .2s ease; }
-    .btn:hover { filter: brightness(1.05); }
-    .btn:active { transform: translateY(1px); }
-    .btn--secondary { background: transparent; color: var(--text); border: 1px solid #2a3e60; }
-    .input { width: 100%; background: #0c1322; border: 1px solid #20304f; color: var(--text); padding: 10px 12px; border-radius: 10px; outline: none; font-size: 14px; }
-    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,140,255,.15); }
-    .row { display:flex; gap: 10px; align-items:center; }
-    .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; background:#0b1220; border:1px dashed #2a3e60; padding: 10px; border-radius: 10px; max-height: 240px; overflow:auto; }
-    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
-  </style>
-  <script>
-    async function runDailyBrief() {
-      setStatus('daily', 'loading');
-      const res = await fetch('/api/daily-brief', { method: 'POST' });
-      const data = await res.json();
-      setStatus('daily', data.success ? 'done' : 'error');
-      setLog('daily', data.output || (data.success ? 'Done' : 'Failed'));
-    }
-    async function printText() {
-      const text = document.getElementById('printText').value || '';
-      if (!text.trim()) { alert('Please enter text to print'); return; }
-      setStatus('text', 'loading');
-      const res = await fetch('/api/print-text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
-      const data = await res.json();
-      setStatus('text', data.success ? 'done' : 'error');
-      setLog('text', data.output || (data.success ? 'Printed' : 'Failed'));
-    }
-    function setStatus(kind, state) {
-      const el = document.getElementById(kind + 'Status');
-      if (!el) return;
-      el.textContent = state === 'loading' ? 'Loading…' : state === 'done' ? 'Done' : state === 'error' ? 'Error' : '';
-    }
-    function setLog(kind, text) {
-      const el = document.getElementById(kind + 'Log');
-      if (!el) return;
-      el.textContent = text || '';
-    }
-  </script>
-  <!-- Favicon: printer emoji as SVG data URI -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' ry='12' fill='%231226ff'/%3E%3Ctext x='32' y='46' font-size='36' text-anchor='middle'%3E%F0%9F%96%A8%EF%B8%8F%3C/text%3E%3C/svg%3E" />
-  <meta http-equiv="Cache-Control" content="no-store" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <meta name="color-scheme" content="dark light">
-  <meta name="theme-color" content="#0b1220">
-  <meta name="description" content="Always-on Printer Console for daily briefs and quick prints" />
-  <style>/* prevent FOUC */</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="title">🖨️ Printer Console</div>
-      <div class="status">Always-on UI</div>
-    </div>
-    <div class="grid">
-      <div class="card">
-        <h3>Daily Brief</h3>
-        <div class="row">
-          <button class="btn" onclick="runDailyBrief()">Run & Print</button>
-          <span id="dailyStatus" class="status"></span>
-        </div>
-        <div id="dailyLog" class="log" style="margin-top:10px"></div>
-      </div>
-      <div class="card">
-        <h3>Quick Text Print</h3>
-        <div class="row" style="margin-bottom:10px">
-          <input id="printText" class="input" placeholder="Enter text to print" />
-          <button class="btn" onclick="printText()">Print</button>
-        </div>
-        <div id="textLog" class="log"></div>
-        <div style="margin-top:8px; font-size:12px; color: var(--muted)">Uses the same file/CUPS flow as daily brief if configured.</div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-"""
+def get_capture_output_path() -> Path:
+    """Return the PNG path used for capture receipts."""
+    output_dir = Path(get_config().output_png_file).resolve().parent
+    return output_dir / "todo_capture.png"
+
+
+def generate_capture_receipt(text: str, image_path: Path | None) -> Path:
+    """Generate a capture receipt directly inside the Flask process."""
+    image_url = path_to_file_url(str(image_path)) if image_path else None
+    content = CaptureAI().analyze(text or None, image_url)
+    return Path(save_todo_receipt(content)).resolve()
 
 
 @app.get("/")
 def index():
-    return render_template_string(INDEX_HTML)
+    return render_template("index.html")
+
+
+@app.get("/capture")
+def capture():
+    return render_template("capture.html")
 
 
 @app.post("/api/daily-brief")
@@ -160,22 +82,55 @@ def api_daily_brief():
 @app.post("/api/print-text")
 def api_print_text():
     data = request.get_json(silent=True) or {}
-    text = str(data.get('text') or '').strip()
+    text = str(data.get("text") or "").strip()
     if not text:
         return jsonify({"success": False, "output": "No text provided"}), 400
+
     success, output = print_text_blocking(text)
     return jsonify({"success": success, "output": output})
 
 
+@app.post("/api/capture")
+def api_capture():
+    text = str(request.form.get("text") or "").strip()
+    upload = request.files.get("image")
+    if not text and (upload is None or not upload.filename):
+        return jsonify({"success": False, "output": "Provide text or an image"}), 400
+
+    temp_path: Path | None = None
+    try:
+        if upload is not None and upload.filename:
+            suffix = Path(upload.filename).suffix or ".upload"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                upload.save(temp_file.name)
+                temp_path = Path(temp_file.name)
+
+        output_path = generate_capture_receipt(text, temp_path)
+        if not output_path.exists():
+            return jsonify({"success": False, "output": "Capture PNG was not created"}), 500
+
+        return jsonify({"success": True, "path": f"/api/capture/image?ts={int(output_path.stat().st_mtime)}"})
+    except Exception as exc:
+        return jsonify({"success": False, "output": str(exc)}), 500
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+@app.get("/api/capture/image")
+def api_capture_image():
+    output_path = get_capture_output_path()
+    if not output_path.exists():
+        return jsonify({"success": False, "output": "No capture PNG available"}), 404
+    return send_file(output_path)
+
+
 def run():
-    host = os.getenv('PRINTER_CONSOLE_HOST', '127.0.0.1')
-    # uncommon default port to avoid conflicts
-    port = int(os.getenv('PRINTER_CONSOLE_PORT', '8765'))
-    debug = os.getenv('PRINTER_CONSOLE_DEBUG', 'false').lower() == 'true'
+    host = os.getenv("PRINTER_CONSOLE_HOST", "127.0.0.1")
+    port = int(os.getenv("PRINTER_CONSOLE_PORT", "8765"))
+    debug = os.getenv("PRINTER_CONSOLE_DEBUG", "false").lower() == "true"
     app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
     run()
-
-

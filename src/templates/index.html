@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Printer Console</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121a2b;
+      --text: #e7eefc;
+      --muted: #9bb3d3;
+      --accent: #4f8cff;
+      --accent2: #4fe3c1;
+      --line: #20304f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #16213a 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .link {
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(12, 19, 34, 0.6);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: linear-gradient(180deg, #141e31 0%, #0f1727 100%);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .card p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .btn {
+      appearance: none;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #071121;
+      font-weight: 700;
+      padding: 11px 15px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.06s ease, filter 0.2s ease;
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { transform: translateY(1px); }
+    .input {
+      width: 100%;
+      background: #0c1322;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      outline: none;
+      font-size: 14px;
+    }
+    .input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .log {
+      margin-top: 12px;
+      font-family: ui-monospace, "SFMono-Regular", monospace;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: pre-wrap;
+      background: #0b1220;
+      border: 1px dashed #2a3e60;
+      padding: 10px;
+      border-radius: 12px;
+      max-height: 240px;
+      overflow: auto;
+    }
+  </style>
+  <script>
+    async function runDailyBrief() {
+      setStatus("daily", "Loading...");
+      const res = await fetch("/api/daily-brief", { method: "POST" });
+      const data = await res.json();
+      setStatus("daily", data.success ? "Done" : "Error");
+      setLog("daily", data.output || (data.success ? "Done" : "Failed"));
+    }
+
+    async function printText() {
+      const text = document.getElementById("printText").value || "";
+      if (!text.trim()) {
+        alert("Please enter text to print");
+        return;
+      }
+      setStatus("text", "Loading...");
+      const res = await fetch("/api/print-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      setStatus("text", data.success ? "Done" : "Error");
+      setLog("text", data.output || (data.success ? "Printed" : "Failed"));
+    }
+
+    function setStatus(kind, value) {
+      const el = document.getElementById(kind + "Status");
+      if (el) el.textContent = value;
+    }
+
+    function setLog(kind, value) {
+      const el = document.getElementById(kind + "Log");
+      if (el) el.textContent = value || "";
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title">Printer Console</div>
+        <div class="subtitle">Single Python web surface for briefs, quick prints, and capture receipts.</div>
+      </div>
+      <a class="link" href="/capture">Open Capture</a>
+    </div>
+    <div class="grid">
+      <section class="card">
+        <h2>Daily Brief</h2>
+        <p>Generate the latest brief, save the outputs, and print through the configured transport.</p>
+        <div class="row">
+          <button class="btn" onclick="runDailyBrief()">Run & Print</button>
+          <span id="dailyStatus" class="status"></span>
+        </div>
+        <div id="dailyLog" class="log"></div>
+      </section>
+      <section class="card">
+        <h2>Quick Text Print</h2>
+        <p>Send plain text to the same printer path used by the daily brief.</p>
+        <div class="row" style="margin-bottom: 10px;">
+          <input id="printText" class="input" placeholder="Enter text to print" />
+          <button class="btn" onclick="printText()">Print</button>
+        </div>
+        <div id="textLog" class="log"></div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
