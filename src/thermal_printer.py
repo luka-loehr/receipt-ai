@@ -11,6 +11,17 @@ from dataclasses import dataclass
 from escpos import printer
 from escpos.exceptions import Error as ESCPOSError
 from .path_utils import ensure_parent_dir
+from .models import (
+    CompleteReceiptContent,
+    PrintableContent,
+    PrintableShoppingItem,
+    PrintableTask,
+    ReceiptFooter,
+    ReceiptHeader,
+    ReceiptSummary,
+    ShoppingSection,
+    TaskSection,
+)
 
 @dataclass
 class PrinterConfig:
@@ -435,6 +446,46 @@ def create_default_configs():
     }
     return configs
 
+
+def build_demo_daily_brief() -> tuple[CompleteReceiptContent, PrintableContent]:
+    """Build a minimal, valid daily brief payload for local printer smoke tests."""
+    receipt_content = CompleteReceiptContent(
+        header=ReceiptHeader(
+            greeting="Guten Morgen, Luka!",
+            title="Dein Tagesbrief",
+            date_formatted="Sonntag, 19. April 2026",
+        ),
+        summary=ReceiptSummary(
+            brief="Heute sieht ruhig aus. Zwei wichtige Aufgaben und ein Einkauf stehen an.",
+        ),
+        task_section=TaskSection(section_title="Aufgaben"),
+        shopping_section=ShoppingSection(section_title="Einkaufsliste"),
+        footer=ReceiptFooter(footer_text="Generiert um 08:00"),
+    )
+    printable_content = PrintableContent(
+        receipt_content=receipt_content,
+        printable_tasks=[
+            PrintableTask(
+                display_text="Meeting vorbereiten",
+                is_truncated=False,
+                original_title="Meeting vorbereiten",
+            ),
+            PrintableTask(
+                display_text="Wichtige E-Mails beantworten",
+                is_truncated=False,
+                original_title="Wichtige E-Mails beantworten",
+            ),
+        ],
+        printable_shopping=[
+            PrintableShoppingItem(
+                display_text="Hafermilch",
+                is_truncated=False,
+                original_title="Hafermilch",
+            ),
+        ],
+    )
+    return receipt_content, printable_content
+
 def main():
     """Test the thermal printer service"""
     print("🖨️  Thermal Printer Service Test")
@@ -446,8 +497,7 @@ def main():
         device_id='outputs/escpos/test_print.txt'
     )
     
-    # Create output directory
-    os.makedirs('outputs/escpos', exist_ok=True)
+    ensure_parent_dir(config.device_id)
     
     printer = ThermalPrinter(config)
     
@@ -457,13 +507,8 @@ def main():
         # Test print
         printer.test_print()
         
-        # Test daily brief
-        from .daily_brief import get_greeting
-        test_greeting = get_greeting()
-        test_brief = "Heute wird ein produktiver Tag. Das Wetter ist sonnig und du hast 3 wichtige E-Mails und 2 Termine."
-        test_tasks = ["E-Mail beantworten", "Meeting vorbereiten", "Projekt planen"]
-        
-        printer.print_daily_brief(test_greeting, test_brief, test_tasks)
+        receipt_content, printable_content = build_demo_daily_brief()
+        printer.print_daily_brief(receipt_content, printable_content)
         
         printer.disconnect()
     else:
