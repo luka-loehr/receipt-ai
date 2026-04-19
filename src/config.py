@@ -5,9 +5,8 @@ Centralized configuration for the receipt printer system including language sett
 """
 
 import os
-from typing import Literal, Optional
+from typing import Optional
 from pydantic import BaseModel, Field
-from enum import Enum
 
 # No need for hardcoded languages! AI can handle any language.
 # Just use strings directly - much simpler and more flexible.
@@ -24,6 +23,7 @@ class AppConfig(BaseModel):
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
     ai_model: str = Field(default="gpt-4o-mini", description="AI model to use")
     max_tokens: int = Field(default=800, description="Maximum output tokens for AI responses")
+    allow_mock_data: bool = Field(default=False, description="Allow demo/mock data when integrations are unavailable")
     
     # Weather Settings
     openweather_api_key: Optional[str] = Field(default=None, description="OpenWeatherMap API key")
@@ -61,6 +61,7 @@ class AppConfig(BaseModel):
             openai_api_key=os.getenv('OPENAI_API_KEY'),
             ai_model=os.getenv('AI_MODEL', 'gpt-4o-mini'),
             max_tokens=int(os.getenv('MAX_OUTPUT_TOKENS', '800')),
+            allow_mock_data=os.getenv('ALLOW_MOCK_DATA', 'false').lower() == 'true',
             
             openweather_api_key=os.getenv('OPENWEATHER_API_KEY'),
             weather_location=os.getenv('WEATHER_LOCATION', 'Karlsruhe,DE'),
@@ -104,7 +105,10 @@ def set_language(language_name: str) -> None:
     global config
     if config is None:
         config = get_config()
-    config.language = language_name.lower()
+    normalized = language_name.strip().lower()
+    if not normalized:
+        raise ValueError("language_name must not be empty")
+    config.language = normalized
 
 def set_user_name(user_name: str) -> None:
     """Set the user name"""

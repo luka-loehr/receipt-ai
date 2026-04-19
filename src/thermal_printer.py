@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from dataclasses import dataclass
 from escpos import printer
 from escpos.exceptions import Error as ESCPOSError
+from .path_utils import ensure_parent_dir
 
 @dataclass
 class PrinterConfig:
@@ -61,7 +62,7 @@ class ThermalPrinter:
             )
         elif printer_type == 'file_test' or printer_type == 'file':
             path = os.getenv('PRINTER_FILE_PATH', 'outputs/escpos/daily_brief.txt')
-            os.makedirs(os.path.dirname(path), exist_ok=True)
+            ensure_parent_dir(path)
             config = PrinterConfig(
                 connection_type='file',
                 device_id=path,

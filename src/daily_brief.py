@@ -15,6 +15,7 @@ import platform
 from .config import AppConfig, get_config
 from .models import CompleteReceiptContent, PrintableContent
 from .data_manager import ModularDataManager, get_data_manager
+from .path_utils import ensure_parent_dir
 
 # Initialize with configuration
 config = get_config()
@@ -317,6 +318,7 @@ def generate_text_brief(brief_response, ai_brief, data_manager=None):
 {tasks_text}{shopping_text}"""
     
     # Save text file
+    ensure_parent_dir(config.output_txt_file)
     with open(config.output_txt_file, 'w', encoding='utf-8') as f:
         f.write(text_content)
     
@@ -488,6 +490,7 @@ def main():
     brief_img, receipt_content, tasks, raw_data = create_daily_brief(data_manager)
     
     # Save PNG
+    ensure_parent_dir(config.output_png_file)
     brief_img.save(config.output_png_file)
     
     # Print to thermal printer

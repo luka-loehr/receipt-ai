@@ -7,7 +7,7 @@ Orchestrates all data services and AI generation for the receipt printer system
 from typing import Optional, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-from .config import AppConfig, get_config
+from .config import AppConfig, get_config, set_language
 from .models import (
     CompleteReceiptContent, WeatherData, EmailData, CalendarEvent, TaskData,
     PrintableContent, PrintableTask, PrintableShoppingItem, LegacyBriefResponse
@@ -53,7 +53,10 @@ class ModularDataManager:
         def fetch_weather():
             try:
                 result = self.weather_service.get_current_weather()
-                print(f"   🌤️  Weather: {result.temperature}, {result.condition}")
+                if result is not None:
+                    print(f"   🌤️  Weather: {result.temperature}, {result.condition}")
+                else:
+                    print("   🌤️  Weather unavailable")
                 return ('weather', result)
             except Exception as e:
                 print(f"   ⚠️  Weather fetch error: {e}")
@@ -250,24 +253,21 @@ class ModularDataManager:
     
     def set_language(self, language_code: str) -> None:
         """Change the system language and reinitialize AI service"""
-        from .config import Language, set_language
-        
-        try:
-            language = Language(language_code.lower())
-            set_language(language)
-            
-            # Reinitialize AI service with new language
-            self.ai_service = create_ai_service(self.config)
-            
-            # Reinitialize other services that depend on language
-            self.calendar_service = create_calendar_service(self.config)
-            self.task_service = create_task_service(self.config)
-            
-            print(f"✅ Language changed to: {self.config.get_language_code()}")
-            
-        except ValueError:
-            print(f"❌ Unsupported language: {language_code}")
-            raise ValueError(f"Language '{language_code}' is not supported")
+        normalized = language_code.strip().lower()
+        if not normalized:
+            raise ValueError("language_code must not be empty")
+
+        self.config.language = normalized
+        set_language(normalized)
+
+        # Reinitialize AI service with new language
+        self.ai_service = create_ai_service(self.config)
+
+        # Reinitialize other services that depend on language
+        self.calendar_service = create_calendar_service(self.config)
+        self.task_service = create_task_service(self.config)
+
+        print(f"✅ Language changed to: {self.config.get_language_code()}")
 
 
 # Factory function for backward compatibility

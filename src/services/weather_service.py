@@ -4,9 +4,8 @@ Weather Service Module
 Handles weather data fetching from OpenWeatherMap One Call API 3.0
 """
 
-import os
 import requests
-from typing import Tuple
+from typing import Optional, Tuple
 from ..models import WeatherData
 from ..config import AppConfig
 
@@ -21,7 +20,8 @@ class WeatherService:
         self.base_url = "https://api.openweathermap.org/data/3.0/onecall"
         
         if not self.api_key:
-            print("⚠️  Warning: No OpenWeatherMap API key found. Weather data will be mocked.")
+            mode = "mocked" if config.allow_mock_data else "empty"
+            print(f"⚠️  Warning: No OpenWeatherMap API key found. Weather data will be {mode}.")
     
     def _get_weather_icon(self, weather_code: str, is_day: bool = True) -> str:
         """Map OpenWeather weather codes to ASCII-compatible icons"""
@@ -68,7 +68,7 @@ class WeatherService:
     
     def _get_coordinates(self) -> Tuple[float, float]:
         """Get coordinates for the location using Geocoding API"""
-        geocoding_url = "http://api.openweathermap.org/geo/1.0/direct"
+        geocoding_url = "https://api.openweathermap.org/geo/1.0/direct"
         params = {
             'q': self.location,
             'appid': self.api_key,
@@ -84,10 +84,10 @@ class WeatherService:
         
         return data[0]['lat'], data[0]['lon']
     
-    def get_current_weather(self) -> WeatherData:
+    def get_current_weather(self) -> Optional[WeatherData]:
         """Get current weather data using One Call API 3.0"""
         if not self.api_key:
-            return self._get_mock_weather()
+            return self._get_mock_weather() if self.config.allow_mock_data else None
         
         try:
             # Get coordinates for the location
@@ -141,7 +141,7 @@ class WeatherService:
             
         except Exception as e:
             print(f"⚠️  Weather API error: {e}")
-            return self._get_mock_weather()
+            return self._get_mock_weather() if self.config.allow_mock_data else None
     
     def _get_mock_weather(self) -> WeatherData:
         """Return mock weather data when API is unavailable"""

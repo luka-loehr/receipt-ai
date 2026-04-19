@@ -10,6 +10,7 @@ import datetime
 import platform
 
 from .config import get_config
+from .path_utils import ensure_parent_dir
 from .todo_models import ToDoReceiptContent, TableSection
 
 
@@ -269,10 +270,9 @@ def save_todo_receipt(content: ToDoReceiptContent):
     config = get_config()
     # Reuse base output folder; keep a separate filename
     out_dir = os.path.dirname(config.output_png_file)
-    os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, "todo_capture.png")
+    ensure_parent_dir(out_path)
     img = render_todo_receipt(content)
     img.save(out_path)
     return out_path
-
 

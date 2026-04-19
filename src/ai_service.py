@@ -4,19 +4,18 @@ Enhanced AI Service Module
 Generates ALL receipt content including headers, dates, greetings in any language using structured output
 """
 
-import os
 import datetime
 import json
 from typing import Optional, List
 from openai import OpenAI
-from pydantic import BaseModel
 
 from .models import (
     CompleteReceiptContent, ReceiptHeader, ReceiptSummary, TaskSection, 
-    ShoppingSection, ReceiptFooter, AIContext, GenerationRequest,
-    WeatherData, EmailData, CalendarEvent, TaskData, GenerationError
+    ShoppingSection, ReceiptFooter, AIContext,
+    WeatherData, EmailData, CalendarEvent, TaskData
 )
 from .config import AppConfig
+from .time_utils import get_now
 
 
 class EnhancedAIService:
@@ -48,7 +47,7 @@ class EnhancedAIService:
                       shopping_items: List[TaskData]) -> AIContext:
         """Build comprehensive context for AI generation"""
         
-        current_time = datetime.datetime.now()
+        current_time = get_now(self.config.timezone)
         hour = current_time.hour
         
         # Determine time of day
@@ -141,6 +140,18 @@ If context data is missing, use "" for strings or [] for arrays."""
         # Get language name for AI prompts - just use the string directly
         language_name = context.language
 
+        weather_lines = [
+            f"- Current: {context.weather.temperature}, {context.weather.condition}",
+            f"- Today's range: {context.weather.low} to {context.weather.high}",
+            f"- Feels like: {context.weather.feels_like}",
+            f"- Humidity: {context.weather.humidity}",
+            f"- Wind: {context.weather.wind_speed}",
+            f"- History: {context.weather.history}",
+            f"- Tomorrow forecast: {context.weather.tomorrow_forecast}",
+        ] if context.weather else [
+            "- Weather data unavailable",
+        ]
+
         final_prompt = f"""Generate a personalized daily briefing for {context.user_name} in {language_name}, using the context below.
 
 --- TIME CONTEXT ---
@@ -151,13 +162,7 @@ Time period: {context.time_of_day}
 Weekend: {context.is_weekend}
 
 --- WEATHER DATA ---
-- Current: {context.weather.temperature}, {context.weather.condition}
-- Today's range: {context.weather.low} to {context.weather.high}
-- Feels like: {context.weather.feels_like}
-- Humidity: {context.weather.humidity}
-- Wind: {context.weather.wind_speed}
-- History: {context.weather.history}
-- Tomorrow forecast: {context.weather.tomorrow_forecast}
+{chr(10).join(weather_lines)}
 
 --- EMAIL OVERVIEW (10 latest) ---
 """
@@ -194,7 +199,7 @@ Weekend: {context.is_weekend}
                 if task.due_date:
                     try:
                         due_dt = datetime.datetime.strptime(task.due_date, "%Y-%m-%d")
-                        days_until = (due_dt - context.current_time).days
+                        days_until = (due_dt.date() - context.current_time.date()).days
                         if days_until < 0:
                             overdue.append(task)
                         elif days_until <= 3:
