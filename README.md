@@ -1,4 +1,4 @@
-# receipt-ai — Daily briefing printer for thermal receipt printers
+# receipt-ai — Daily briefing printer
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
